@@ -17,14 +17,6 @@ type Server struct {
 	running bool
 	conns   map[*ConnectionHandler]struct{}
 	mu      sync.Mutex
-	logMu   sync.Mutex
-}
-
-// printLog logs a message in a thread-safe manner using a mutex.
-func (s *Server) printLog(msg string) {
-	s.logMu.Lock()
-	defer s.logMu.Unlock()
-	log.Println(msg)
 }
 
 // addConn adds a new connection to the server's active connection map if running.
@@ -52,7 +44,7 @@ func (s *Server) serve() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	s.running = true
-	s.printLog(fmt.Sprintf("Listening on %s", addr))
+	log.Println(fmt.Sprintf("Listening on %s", addr))
 	for s.running {
 		// Set a short deadline to allow periodic shutdown checks.
 		ln.(*net.TCPListener).SetDeadline(time.Now().Add(2 * time.Second))

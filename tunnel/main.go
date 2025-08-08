@@ -2,6 +2,7 @@
 package tunnel
 
 import (
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -29,5 +30,5 @@ func RunProxy() {
 	<-c
 	// Signal received: stop the server and log shutdown.
 	s.running = false
-	s.printLog("Shutting down...")
+	log.Println("Shutting down...")
 }

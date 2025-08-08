@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"strings"
 	"sync"
@@ -43,17 +44,17 @@ func (c *ConnectionHandler) close() {
 // Handles WebSocket upgrades, HTTP CONNECT, and logs all major events and errors.
 func (c *ConnectionHandler) handle() {
 	c.startTime = time.Now()
-	c.server.printLog(c.log + " - Connection opened at " + c.startTime.Format(time.RFC3339))
+	log.Println(c.log + " - Connection opened at " + c.startTime.Format(time.RFC3339))
 	// Ensure connection cleanup and logging on exit (even on error).
 	defer func() {
 		c.close()
 		c.server.removeConn(c)
 		elapsed := time.Since(c.startTime)
-		c.server.printLog(c.log + " - Connection closed. Duration: " + elapsed.String())
+		log.Println(c.log + " - Connection closed. Duration: " + elapsed.String())
 	}()
 
 	// Set a read deadline to avoid hanging connections.
-	c.server.printLog(c.log + " - Setting client read deadline: " + TIMEOUT.String())
+	log.Println(c.log + " - Setting client read deadline: " + TIMEOUT.String())
 	c.client.SetReadDeadline(time.Now().Add(TIMEOUT))
 	reader := bufio.NewReaderSize(c.client, BUFLEN)
 	var bufBuilder strings.Builder
@@ -61,8 +62,8 @@ func (c *ConnectionHandler) handle() {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			// If client disconnects or read fails, log and close.
-			c.server.printLog(c.log + " - error reading from client: " + err.Error())
-			c.server.printLog(c.log + " - Closing connection due to read error.")
+			log.Println(c.log + " - error reading from client: " + err.Error())
+			log.Println(c.log + " - Closing connection due to read error.")
 			return
 		}
 		bufBuilder.WriteString(line)
@@ -72,7 +73,7 @@ func (c *ConnectionHandler) handle() {
 		}
 		// Prevent header overflow attacks.
 		if bufBuilder.Len() > BUFLEN {
-			c.server.printLog(c.log + " - error: header too large")
+			log.Println(c.log + " - error: header too large")
 			c.client.Write([]byte("HTTP/1.1 400 HeaderTooLarge\r\n\r\n"))
 			return
 		}
@@ -81,7 +82,7 @@ func (c *ConnectionHandler) handle() {
 
 	reqLines := strings.Split(buf, "\r\n")
 	if len(reqLines) > 0 {
-		c.server.printLog(c.log + " - Request: " + reqLines[0])
+		log.Println(c.log + " - Request: " + reqLines[0])
 	}
 
 	// Remove read deadline for rest of session.
@@ -90,7 +91,7 @@ func (c *ConnectionHandler) handle() {
 	// Detect WebSocket upgrade (used for SSH tunneling).
 	upgrade := findHeader(buf, "Upgrade")
 	if upgrade == "websocket" {
-		c.server.printLog(c.log + " - WebSocket upgrade: using in-process SSH server.")
+		log.Println(c.log + " - WebSocket upgrade: using in-process SSH server.")
 		// net.Pipe creates a pair of connected endpoints for tunneling.
 		proxyEnd, sshEnd := net.Pipe()
 		// Lazily initialize SSH config if needed.
@@ -98,7 +99,7 @@ func (c *ConnectionHandler) handle() {
 			var err error
 			c.sshConfig, err = sshserver.InitSSHServerConfig()
 			if err != nil {
-				c.server.printLog(c.log + " - Error initializing SSH config: " + err.Error())
+				log.Println(c.log + " - Error initializing SSH config: " + err.Error())
 				return
 			}
 		}
@@ -108,33 +109,33 @@ func (c *ConnectionHandler) handle() {
 		c.targetClosed = false
 		// Respond to client with protocol upgrade.
 		c.client.Write([]byte(RESPONSE))
-		c.server.printLog(c.log + " - Tunnel established.")
+		log.Println(c.log + " - Tunnel established.")
 		c.doCONNECT()
 		return
 	} else if strings.HasPrefix(reqLines[0], "CONNECT ") {
-		c.server.printLog(c.log + " - HTTP CONNECT: " + reqLines[0])
+		log.Println(c.log + " - HTTP CONNECT: " + reqLines[0])
 		parts := strings.Split(reqLines[0], " ")
 		if len(parts) < 2 {
 			// Malformed CONNECT request line.
-			c.server.printLog(c.log + " - Malformed CONNECT request line.")
+			log.Println(c.log + " - Malformed CONNECT request line.")
 			c.client.Write([]byte("HTTP/1.1 400 BadRequest\r\n\r\n"))
 			return
 		}
 		targetAddr := parts[1]
 		// Attempt to connect to requested target.
 		if err := c.connectTarget(targetAddr); err != nil {
-			c.server.printLog(c.log + " - Error connecting to target: " + err.Error())
+			log.Println(c.log + " - Error connecting to target: " + err.Error())
 			c.client.Write([]byte("HTTP/1.1 502 BadGateway\r\n\r\n"))
 			return
 		}
 		// Connection established, inform client.
 		c.client.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
-		c.server.printLog(c.log + " - Tunnel established.")
+		log.Println(c.log + " - Tunnel established.")
 		c.doCONNECT()
 		return
 	} else if upgrade != "" {
 		// Other upgrade header present (not websocket).
-		c.server.printLog(c.log + " - Upgrade header present: " + upgrade)
+		log.Println(c.log + " - Upgrade header present: " + upgrade)
 	}
 }
 
@@ -150,14 +151,14 @@ func (c *ConnectionHandler) connectTarget(host string) error {
 		port = fmt.Sprintf("%d", listeningPort)
 	}
 	addr := net.JoinHostPort(host, port)
-	c.server.printLog(c.log + " - Connecting to target: " + addr)
+	log.Println(c.log + " - Connecting to target: " + addr)
 	// Use DialTimeout to avoid hanging on unreachable targets.
 	target, err := net.DialTimeout("tcp", addr, 10*time.Second)
 	if err != nil {
-		c.server.printLog(c.log + " - Error connecting to target: " + err.Error())
+		log.Println(c.log + " - Error connecting to target: " + err.Error())
 		return err
 	}
-	c.server.printLog(c.log + " - Connected to target: " + addr)
+	log.Println(c.log + " - Connected to target: " + addr)
 	c.target = target
 	c.targetClosed = false
 	return nil
@@ -172,7 +173,7 @@ func (c *ConnectionHandler) doCONNECT() {
 	go func() {
 		_, err := io.Copy(c.target, c.client)
 		if err != nil {
-			c.server.printLog(c.log + " - Error copying client to target: " + err.Error())
+			log.Println(c.log + " - Error copying client to target: " + err.Error())
 		}
 		wg.Done()
 	}()
@@ -180,7 +181,7 @@ func (c *ConnectionHandler) doCONNECT() {
 	go func() {
 		_, err := io.Copy(c.client, c.target)
 		if err != nil {
-			c.server.printLog(c.log + " - Error copying target to client: " + err.Error())
+			log.Println(c.log + " - Error copying target to client: " + err.Error())
 		}
 		wg.Done()
 	}()
