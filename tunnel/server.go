@@ -25,6 +25,7 @@ func (s *Server) addConn(conn *ConnectionHandler) {
 	defer s.mu.Unlock()
 	if s.running {
 		s.conns[conn] = struct{}{}
+		log.Println("Connection added. Active:", len(s.conns))
 	}
 }
 
@@ -33,6 +34,7 @@ func (s *Server) removeConn(conn *ConnectionHandler) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.conns, conn)
+	log.Println("Connection removed. Active:", len(s.conns))
 }
 
 // serve listens for incoming TCP connections and spawns handlers for each connection.

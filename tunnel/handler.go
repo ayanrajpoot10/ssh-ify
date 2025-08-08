@@ -45,13 +45,6 @@ func (c *ConnectionHandler) close() {
 func (c *ConnectionHandler) handle() {
 	c.startTime = time.Now()
 	log.Println(c.log + " - Connection opened at " + c.startTime.Format(time.RFC3339))
-	// Ensure connection cleanup and logging on exit (even on error).
-	defer func() {
-		c.close()
-		c.server.removeConn(c)
-		elapsed := time.Since(c.startTime)
-		log.Println(c.log + " - Connection closed. Duration: " + elapsed.String())
-	}()
 
 	// Set a read deadline to avoid hanging connections.
 	log.Println(c.log + " - Setting client read deadline: " + TIMEOUT.String())
@@ -167,25 +160,36 @@ func (c *ConnectionHandler) connectTarget(host string) error {
 // doCONNECT relays data bidirectionally between the client and target connection using goroutines.
 // Ensures proper cleanup after transfer is complete.
 func (c *ConnectionHandler) doCONNECT() {
+	defer func() {
+		c.close()                 // Clean up both connections
+		c.server.removeConn(c)    // Remove from active map
+		log.Println(c.log + " - Connection closed after data relay.")
+	}()
+
 	var wg sync.WaitGroup
 	wg.Add(2)
-	// Relay data from client to target.
+
+	// Copy client → target
 	go func() {
+		defer wg.Done()
 		_, err := io.Copy(c.target, c.client)
 		if err != nil {
-			log.Println(c.log + " - Error copying client to target: " + err.Error())
+			log.Println(c.log + " - Error copying client to target:", err)
 		}
-		wg.Done()
+		// Important: Closing target to unblock other io.Copy
+		c.target.Close()
 	}()
-	// Relay data from target to client.
+
+	// Copy target → client
 	go func() {
+		defer wg.Done()
 		_, err := io.Copy(c.client, c.target)
 		if err != nil {
-			log.Println(c.log + " - Error copying target to client: " + err.Error())
+			log.Println(c.log + " - Error copying target to client:", err)
 		}
-		wg.Done()
+		// Important: Closing client to unblock other io.Copy
+		c.client.Close()
 	}()
-	// Wait for both directions to finish before closing connection.
+
 	wg.Wait()
-	c.close()
 }
