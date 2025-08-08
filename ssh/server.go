@@ -34,7 +34,14 @@ func InitSSHServerConfig() (*ssh.ServerConfig, error) {
 	// Set up server config with password authentication.
 	config := &ssh.ServerConfig{
 		PasswordCallback: PasswordAuthCallback,
+		BannerCallback: func(conn ssh.ConnMetadata) string {
+			return "Welcome to ssh-ify.\n"
+		},
 	}
+
+	// Set custom SSH version banner
+	config.ServerVersion = "SSH-2.0-ssh-ify_1.0"
+
 	config.AddHostKey(private)
 	return config, nil
 }
