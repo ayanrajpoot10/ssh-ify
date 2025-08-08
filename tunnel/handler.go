@@ -28,8 +28,8 @@ type ConnectionHandler struct {
 	sshConfig    *ssh.ServerConfig
 }
 
-// close safely closes both client and target connections, marking them as closed.
-func (c *ConnectionHandler) close() {
+// CloseConnections safely closes both client and target connections, marking them as closed.
+func (c *ConnectionHandler) CloseConnections() {
 	if !c.clientClosed && c.client != nil {
 		c.client.Close()
 		c.clientClosed = true
@@ -40,16 +40,16 @@ func (c *ConnectionHandler) close() {
 	}
 }
 
-// handle processes the client connection, parses the HTTP request, detects upgrades, and manages tunnel establishment.
+// ProcessConnection processes the client connection, parses the HTTP request, detects upgrades, and manages tunnel establishment.
 // Handles WebSocket upgrades, HTTP CONNECT, and logs all major events and errors.
-func (c *ConnectionHandler) handle() {
+func (c *ConnectionHandler) ProcessConnection() {
 	c.startTime = time.Now()
 	log.Println(c.log + " - Connection opened at " + c.startTime.Format(time.RFC3339))
 
 	// Set a read deadline to avoid hanging connections.
-	log.Println(c.log + " - Setting client read deadline: " + TIMEOUT.String())
-	c.client.SetReadDeadline(time.Now().Add(TIMEOUT))
-	reader := bufio.NewReaderSize(c.client, BUFLEN)
+	log.Println(c.log + " - Setting client read deadline: " + ClientReadTimeout.String())
+	c.client.SetReadDeadline(time.Now().Add(ClientReadTimeout))
+	reader := bufio.NewReaderSize(c.client, BufferSize)
 	var bufBuilder strings.Builder
 	for {
 		line, err := reader.ReadString('\n')
@@ -65,7 +65,7 @@ func (c *ConnectionHandler) handle() {
 			break
 		}
 		// Prevent header overflow attacks.
-		if bufBuilder.Len() > BUFLEN {
+		if bufBuilder.Len() > BufferSize {
 			log.Println(c.log + " - error: header too large")
 			c.client.Write([]byte("HTTP/1.1 400 HeaderTooLarge\r\n\r\n"))
 			return
@@ -82,7 +82,7 @@ func (c *ConnectionHandler) handle() {
 	c.client.SetReadDeadline(time.Time{})
 
 	// Detect WebSocket upgrade (used for SSH tunneling).
-	upgrade := findHeader(buf, "Upgrade")
+	upgrade := GetHeaderValue(buf, "Upgrade")
 	if upgrade == "websocket" {
 		log.Println(c.log + " - WebSocket upgrade: using in-process SSH server.")
 		// net.Pipe creates a pair of connected endpoints for tunneling.
@@ -90,20 +90,20 @@ func (c *ConnectionHandler) handle() {
 		// Lazily initialize SSH config if needed.
 		if c.sshConfig == nil {
 			var err error
-			c.sshConfig, err = sshserver.InitSSHServerConfig()
+			c.sshConfig, err = sshserver.InitializeSSHServerConfig()
 			if err != nil {
 				log.Println(c.log + " - Error initializing SSH config: " + err.Error())
 				return
 			}
 		}
 		// Start SSH handler in a goroutine for the tunnel endpoint.
-		go sshserver.HandleSSHConn(sshEnd, c.sshConfig)
+		go sshserver.HandleIncomingSSHConnection(sshEnd, c.sshConfig)
 		c.target = proxyEnd
 		c.targetClosed = false
 		// Respond to client with protocol upgrade.
-		c.client.Write([]byte(RESPONSE))
+		c.client.Write([]byte(WebSocketUpgradeResponse))
 		log.Println(c.log + " - Tunnel established.")
-		c.doCONNECT()
+		c.RelayDataBetweenConnections()
 		return
 	} else if strings.HasPrefix(reqLines[0], "CONNECT ") {
 		log.Println(c.log + " - HTTP CONNECT: " + reqLines[0])
@@ -116,7 +116,7 @@ func (c *ConnectionHandler) handle() {
 		}
 		targetAddr := parts[1]
 		// Attempt to connect to requested target.
-		if err := c.connectTarget(targetAddr); err != nil {
+		if err := c.EstablishTargetConnection(targetAddr); err != nil {
 			log.Println(c.log + " - Error connecting to target: " + err.Error())
 			c.client.Write([]byte("HTTP/1.1 502 BadGateway\r\n\r\n"))
 			return
@@ -124,7 +124,7 @@ func (c *ConnectionHandler) handle() {
 		// Connection established, inform client.
 		c.client.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 		log.Println(c.log + " - Tunnel established.")
-		c.doCONNECT()
+		c.RelayDataBetweenConnections()
 		return
 	} else if upgrade != "" {
 		// Other upgrade header present (not websocket).
@@ -132,16 +132,16 @@ func (c *ConnectionHandler) handle() {
 	}
 }
 
-// connectTarget establishes a TCP connection to the specified host and port.
+// EstablishTargetConnection establishes a TCP connection to the specified host and port.
 // Returns an error if the connection fails.
-func (c *ConnectionHandler) connectTarget(host string) error {
+func (c *ConnectionHandler) EstablishTargetConnection(host string) error {
 	var port string
-	// Parse host:port, default to listeningPort if not specified.
+	// Parse host:port, default to DefaultListenPort if not specified.
 	if i := strings.Index(host, ":"); i != -1 {
 		port = host[i+1:]
 		host = host[:i]
 	} else {
-		port = fmt.Sprintf("%d", listeningPort)
+		port = fmt.Sprintf("%d", DefaultListenPort)
 	}
 	addr := net.JoinHostPort(host, port)
 	log.Println(c.log + " - Connecting to target: " + addr)
@@ -157,12 +157,12 @@ func (c *ConnectionHandler) connectTarget(host string) error {
 	return nil
 }
 
-// doCONNECT relays data bidirectionally between the client and target connection using goroutines.
+// RelayDataBetweenConnections relays data bidirectionally between the client and target connection using goroutines.
 // Ensures proper cleanup after transfer is complete.
-func (c *ConnectionHandler) doCONNECT() {
+func (c *ConnectionHandler) RelayDataBetweenConnections() {
 	defer func() {
-		c.close()                 // Clean up both connections
-		c.server.removeConn(c)    // Remove from active map
+		c.CloseConnections()         // Clean up both connections
+		c.server.RemoveConnection(c) // Remove from active map
 		log.Println(c.log + " - Connection closed after data relay.")
 	}()
 
@@ -174,7 +174,7 @@ func (c *ConnectionHandler) doCONNECT() {
 		defer wg.Done()
 		_, err := io.Copy(c.target, c.client)
 		if err != nil {
-			log.Println(c.log + " - Error copying client to target:", err)
+			log.Println(c.log+" - Error copying client to target:", err)
 		}
 		// Important: Closing target to unblock other io.Copy
 		c.target.Close()
@@ -185,7 +185,7 @@ func (c *ConnectionHandler) doCONNECT() {
 		defer wg.Done()
 		_, err := io.Copy(c.client, c.target)
 		if err != nil {
-			log.Println(c.log + " - Error copying target to client:", err)
+			log.Println(c.log+" - Error copying target to client:", err)
 		}
 		// Important: Closing client to unblock other io.Copy
 		c.client.Close()

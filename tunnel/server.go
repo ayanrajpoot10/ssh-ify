@@ -19,8 +19,8 @@ type Server struct {
 	mu      sync.Mutex
 }
 
-// addConn adds a new connection to the server's active connection map if running.
-func (s *Server) addConn(conn *ConnectionHandler) {
+// AddConnection adds a new connection to the server's active connection map if running.
+func (s *Server) AddConnection(conn *ConnectionHandler) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.running {
@@ -29,17 +29,17 @@ func (s *Server) addConn(conn *ConnectionHandler) {
 	}
 }
 
-// removeConn removes a connection from the server's active connection map.
-func (s *Server) removeConn(conn *ConnectionHandler) {
+// RemoveConnection removes a connection from the server's active connection map.
+func (s *Server) RemoveConnection(conn *ConnectionHandler) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.conns, conn)
 	log.Println("Connection removed. Active:", len(s.conns))
 }
 
-// serve listens for incoming TCP connections and spawns handlers for each connection.
+// ListenAndServe listens for incoming TCP connections and spawns handlers for each connection.
 // Handles timeouts, errors, and ensures proper cleanup on shutdown.
-func (s *Server) serve() {
+func (s *Server) ListenAndServe() {
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -61,9 +61,9 @@ func (s *Server) serve() {
 		}
 		// Create a handler for each new connection.
 		h := &ConnectionHandler{client: conn, server: s, log: "Connection: " + conn.RemoteAddr().String()}
-		s.addConn(h)
+		s.AddConnection(h)
 		// Handle connection concurrently.
-		go h.handle()
+		go h.ProcessConnection()
 	}
 	// Listener closed after shutdown.
 	ln.Close()

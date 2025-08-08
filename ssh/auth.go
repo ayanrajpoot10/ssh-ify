@@ -9,10 +9,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// pamAuth authenticates a user using PAM (Pluggable Authentication Modules).
+// AuthenticateWithPAM authenticates a user using PAM (Pluggable Authentication Modules).
 // It returns true if authentication succeeds, false otherwise.
 // This function is used internally for password-based authentication.
-func pamAuth(user, password string) bool {
+func AuthenticateWithPAM(user, password string) bool {
 	// Start PAM authentication session with callback for password prompt.
 	t, err := pam.StartFunc("sshd", user, func(s pam.Style, msg string) (string, error) {
 		// Handle different PAM prompt styles.
@@ -41,10 +41,10 @@ func pamAuth(user, password string) bool {
 }
 
 // PasswordAuthCallback is an ssh.PasswordCallback for PAM authentication.
-// It validates the provided credentials using pamAuth and returns permissions or an error.
+// It validates the provided credentials using AuthenticateWithPAM and returns permissions or an error.
 // Used by the SSH server to authenticate incoming connections.
 func PasswordAuthCallback(c ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
-	if pamAuth(c.User(), string(password)) {
+	if AuthenticateWithPAM(c.User(), string(password)) {
 		return nil, nil
 	}
 	return nil, fmt.Errorf("invalid credentials")

@@ -8,9 +8,9 @@ import (
 	"encoding/pem"
 )
 
-// GeneratePrivateKey creates a new RSA private key of the specified bit size.
+// GenerateRSAPrivateKey creates a new RSA private key of the specified bit size.
 // Returns the generated key or an error if generation or validation fails.
-func GeneratePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
+func GenerateRSAPrivateKey(bitSize int) (*rsa.PrivateKey, error) {
 	// Generate RSA private key of given bit size.
 	privateKey, err := rsa.GenerateKey(rand.Reader, bitSize)
 	if err != nil {
@@ -23,9 +23,9 @@ func GeneratePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
 	return privateKey, nil
 }
 
-// EncodePrivateKeyToPEM encodes an RSA private key to PEM format.
+// EncodeRSAPrivateKeyToPEM encodes an RSA private key to PEM format.
 // Returns the PEM-encoded byte slice for use in SSH server configuration.
-func EncodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
+func EncodeRSAPrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 	// Marshal RSA key to PKCS#1 DER format.
 	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
 	// Create PEM block for private key.

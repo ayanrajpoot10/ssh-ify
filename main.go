@@ -10,5 +10,5 @@ import (
 // It delegates the proxy logic to the tunnel package.
 func main() {
 	// Start the proxy server defined in the tunnel package.
-	tunnel.RunProxy()
+	tunnel.StartProxyServer()
 }

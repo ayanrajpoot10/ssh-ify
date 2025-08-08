@@ -8,13 +8,13 @@ import (
 	"syscall"
 )
 
-// RunProxy starts the proxy server and manages its lifecycle.
+// StartProxyServer starts the proxy server and manages its lifecycle.
 // Sets up signal handling for graceful shutdown and runs the server in a goroutine.
-func RunProxy() {
+func StartProxyServer() {
 	// Initialize the proxy server with listening address and port.
 	s := &Server{
-		host:    listeningAddr,
-		port:    listeningPort,
+		host:    DefaultListenAddress,
+		port:    DefaultListenPort,
 		running: true,
 		conns:   make(map[*ConnectionHandler]struct{}),
 	}
@@ -24,7 +24,7 @@ func RunProxy() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 	// Start the server in a separate goroutine so main can wait for shutdown signal.
-	go s.serve()
+	go s.ListenAndServe()
 
 	// Block until a shutdown signal is received (e.g., Ctrl+C or SIGTERM).
 	<-c
