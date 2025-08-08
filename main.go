@@ -1,19 +1,14 @@
+// Package main is the entry point for the ssh-ify proxy application.
+// It initializes and starts the tunnel proxy server.
 package main
 
 import (
-	"os"
-	"os/signal"
-	"syscall"
-
 	tunnel "ssh-ify/tunnel"
 )
 
+// main initializes and starts the tunnel proxy server.
+// It delegates the proxy logic to the tunnel package.
 func main() {
-
-	go tunnel.RunProxy()
-
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	<-c
-	println("Shutting down...")
+	// Start the proxy server defined in the tunnel package.
+	tunnel.RunProxy()
 }

@@ -1,3 +1,4 @@
+// Package tunnel implements the proxy server, managing incoming connections and concurrency.
 package tunnel
 
 import (
@@ -8,7 +9,8 @@ import (
 	"time"
 )
 
-// Server manages incoming connections and proxy logic.
+// Server manages incoming connections and proxy logic for the tunnel proxy server.
+// It tracks active connections, handles logging, and ensures thread-safe operations.
 type Server struct {
 	host    string
 	port    int
@@ -18,12 +20,14 @@ type Server struct {
 	logMu   sync.Mutex
 }
 
+// printLog logs a message in a thread-safe manner using a mutex.
 func (s *Server) printLog(msg string) {
 	s.logMu.Lock()
 	defer s.logMu.Unlock()
 	log.Println(msg)
 }
 
+// addConn adds a new connection to the server's active connection map if running.
 func (s *Server) addConn(conn *ConnectionHandler) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -32,12 +36,15 @@ func (s *Server) addConn(conn *ConnectionHandler) {
 	}
 }
 
+// removeConn removes a connection from the server's active connection map.
 func (s *Server) removeConn(conn *ConnectionHandler) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.conns, conn)
 }
 
+// serve listens for incoming TCP connections and spawns handlers for each connection.
+// Handles timeouts, errors, and ensures proper cleanup on shutdown.
 func (s *Server) serve() {
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 	ln, err := net.Listen("tcp", addr)
@@ -47,17 +54,23 @@ func (s *Server) serve() {
 	s.running = true
 	s.printLog(fmt.Sprintf("Listening on %s", addr))
 	for s.running {
+		// Set a short deadline to allow periodic shutdown checks.
 		ln.(*net.TCPListener).SetDeadline(time.Now().Add(2 * time.Second))
 		conn, err := ln.Accept()
 		if err != nil {
+			// If timeout, check running flag again.
 			if ne, ok := err.(net.Error); ok && ne.Timeout() {
 				continue
 			}
+			// Any other error: exit loop and close listener.
 			break
 		}
+		// Create a handler for each new connection.
 		h := &ConnectionHandler{client: conn, server: s, log: "Connection: " + conn.RemoteAddr().String()}
 		s.addConn(h)
+		// Handle connection concurrently.
 		go h.handle()
 	}
+	// Listener closed after shutdown.
 	ln.Close()
 }
