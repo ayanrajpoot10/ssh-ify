@@ -22,9 +22,9 @@ var (
 	DefaultListenPort    int    = 80
 )
 
-// GetHeaderValue extracts the value of a header from the HTTP request string.
+// HeaderValue extracts the value of a header from the HTTP request string.
 // Returns the header value or an empty string if not found.
-func GetHeaderValue(request, headerName string) string {
+func HeaderValue(request, headerName string) string {
 	idx := strings.Index(request, headerName+": ")
 	if idx == -1 {
 		return ""

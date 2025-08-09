@@ -16,7 +16,7 @@ func StartProxyServer() {
 		host:    DefaultListenAddress,
 		port:    DefaultListenPort,
 		running: true,
-		conns:   make(map[*ConnectionHandler]struct{}),
+		conns:   make(map[*Handler]struct{}),
 	}
 
 	// Create a channel to receive OS signals for graceful shutdown.

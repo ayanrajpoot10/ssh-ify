@@ -12,10 +12,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// ParseDirectTCPIPChannel parses the ExtraData for a direct-tcpip channel.
+// DirectTCPIP parses the ExtraData for a direct-tcpip channel.
 // It extracts the target host and port from the SSH channel request.
 // Returns an error if the request is malformed or incomplete.
-func ParseDirectTCPIPChannel(extra []byte) (host string, port uint32, err error) {
+func DirectTCPIP(extra []byte) (host string, port uint32, err error) {
 	// Parse host length (first 4 bytes, big endian)
 	if len(extra) < 4 {
 		return "", 0, fmt.Errorf("invalid direct-tcpip request: insufficient data for host length")
@@ -32,16 +32,16 @@ func ParseDirectTCPIPChannel(extra []byte) (host string, port uint32, err error)
 	return host, port, nil
 }
 
-// ParseForwardedTCPIPChannel parses the ExtraData for a forwarded-tcpip channel.
+// ForwardedTCPIP parses the ExtraData for a forwarded-tcpip channel.
 // Currently not implemented; returns an error indicating unsupported channel type.
-func ParseForwardedTCPIPChannel(extra []byte) (host string, port uint32, err error) {
+func ForwardedTCPIP(extra []byte) (host string, port uint32, err error) {
 	// TODO: Implement parsing for forwarded-tcpip if needed
 	return "", 0, fmt.Errorf("forwarded-tcpip not supported")
 }
 
-// ForwardSSHChannelData handles bidirectional data transfer between an SSH channel and the target TCP connection.
+// ForwardData handles bidirectional data transfer between an SSH channel and the target TCP connection.
 // It launches goroutines for each direction and ensures proper resource cleanup.
-func ForwardSSHChannelData(ch ssh.Channel, targetConn net.Conn, addr string) {
+func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -63,10 +63,10 @@ func ForwardSSHChannelData(ch ssh.Channel, targetConn net.Conn, addr string) {
 	wg.Wait()
 }
 
-// HandleChannels processes incoming SSH channels for port forwarding.
+// ServePortForward processes incoming SSH channels for port forwarding.
 // Supports direct-tcpip requests and rejects unsupported or malformed channels.
 // Each accepted channel is handled in a separate goroutine for concurrency.
-func HandlePortForwardChannels(chans <-chan ssh.NewChannel) {
+func ServePortForward(chans <-chan ssh.NewChannel) {
 	for newChannel := range chans {
 		var targetHost string
 		var targetPort uint32
@@ -75,7 +75,7 @@ func HandlePortForwardChannels(chans <-chan ssh.NewChannel) {
 		// Determine channel type and parse target info.
 		switch newChannel.ChannelType() {
 		case "direct-tcpip":
-			targetHost, targetPort, err = ParseDirectTCPIPChannel(newChannel.ExtraData())
+			targetHost, targetPort, err = DirectTCPIP(newChannel.ExtraData())
 			if err != nil {
 				// Malformed request, reject channel.
 				log.Printf("HandleChannels: %v", err)
@@ -83,7 +83,7 @@ func HandlePortForwardChannels(chans <-chan ssh.NewChannel) {
 				continue
 			}
 		case "forwarded-tcpip":
-			targetHost, targetPort, err = ParseForwardedTCPIPChannel(newChannel.ExtraData())
+			targetHost, targetPort, err = ForwardedTCPIP(newChannel.ExtraData())
 			log.Printf("HandleChannels: forwarded-tcpip not supported")
 			newChannel.Reject(ssh.Prohibited, "forwarded-tcpip not supported")
 			continue
@@ -114,7 +114,7 @@ func HandlePortForwardChannels(chans <-chan ssh.NewChannel) {
 				return
 			}
 			// Relay data between SSH channel and target connection.
-			ForwardSSHChannelData(ch, targetConn, addr)
+			ForwardData(ch, targetConn, addr)
 		}(targetHost, targetPort, ch)
 	}
 }

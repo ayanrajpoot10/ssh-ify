@@ -15,12 +15,12 @@ type Server struct {
 	host    string
 	port    int
 	running bool
-	conns   map[*ConnectionHandler]struct{}
+	conns   map[*Handler]struct{}
 	mu      sync.Mutex
 }
 
 // AddConnection adds a new connection to the server's active connection map if running.
-func (s *Server) AddConnection(conn *ConnectionHandler) {
+func (s *Server) Add(conn *Handler) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.running {
@@ -30,7 +30,7 @@ func (s *Server) AddConnection(conn *ConnectionHandler) {
 }
 
 // RemoveConnection removes a connection from the server's active connection map.
-func (s *Server) RemoveConnection(conn *ConnectionHandler) {
+func (s *Server) Remove(conn *Handler) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.conns, conn)
@@ -60,10 +60,10 @@ func (s *Server) ListenAndServe() {
 			break
 		}
 		// Create a handler for each new connection.
-		h := &ConnectionHandler{client: conn, server: s, log: "Connection: " + conn.RemoteAddr().String()}
-		s.AddConnection(h)
+		h := &Handler{client: conn, server: s, log: "Connection: " + conn.RemoteAddr().String()}
+		s.Add(h)
 		// Handle connection concurrently.
-		go h.ProcessConnection()
+		go h.Process()
 	}
 	// Listener closed after shutdown.
 	ln.Close()
