@@ -50,7 +50,6 @@ func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 		if err != nil {
 			log.Printf("forwardChannel: Error copying SSH->%s: %v", addr, err)
 		}
-		targetConn.Close()
 	}()
 	go func() {
 		defer wg.Done()
@@ -58,9 +57,11 @@ func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 		if err != nil {
 			log.Printf("forwardChannel: Error copying %s->SSH: %v", addr, err)
 		}
-		ch.Close()
 	}()
 	wg.Wait()
+	// Close connections after both directions are done
+	targetConn.Close()
+	ch.Close()
 }
 
 // ServePortForward processes incoming SSH channels for port forwarding.
