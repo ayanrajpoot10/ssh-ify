@@ -11,20 +11,25 @@ import (
 // StartProxyServer starts the proxy server and manages its lifecycle.
 // Sets up signal handling for graceful shutdown and runs the server in a goroutine.
 func StartProxyServer() {
-	// Initialize the proxy server with listening address and port.
+	// Initialize the proxy server with listening address and port, and TLS config.
 	s := &Server{
-		host:    DefaultListenAddress,
-		port:    DefaultListenPort,
-		running: true,
-		conns:   make(map[*Handler]struct{}),
+		host:        DefaultListenAddress,
+		port:        DefaultListenPort,
+		running:     true,
+		conns:       make(map[*Handler]struct{}),
+		tlsEnabled:  true,
+		tlsCertFile: "cert.pem",
+		tlsKeyFile:  "key.pem",
 	}
 
 	// Create a channel to receive OS signals for graceful shutdown.
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	// Start the server in a separate goroutine so main can wait for shutdown signal.
+	// Start the TCP server in a separate goroutine.
 	go s.ListenAndServe()
+	// Start the TLS server in a separate goroutine.
+	go s.ListenAndServeTLS()
 
 	// Block until a shutdown signal is received (e.g., Ctrl+C or SIGTERM).
 	<-c

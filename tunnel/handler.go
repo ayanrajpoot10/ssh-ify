@@ -76,6 +76,18 @@ func (h *Handler) Process() {
 	reqLines := strings.Split(buf, "\r\n")
 	if len(reqLines) > 0 {
 		log.Println(h.log + " - Request: " + reqLines[0])
+		// Print Host header if present
+		for _, line := range reqLines[1:] {
+			lowerLine := strings.ToLower(line)
+			if strings.HasPrefix(lowerLine, "host:") {
+				hostHeader := strings.TrimSpace(line[5:])
+				log.Println(h.log + " - Host header: " + hostHeader)
+			}
+			if strings.HasPrefix(lowerLine, "cf-connecting-ip:") {
+				cfIP := strings.TrimSpace(line[len("CF-Connecting-IP:"):])
+				log.Println(h.log + " - CF-Connecting-IP header: " + cfIP)
+			}
+		}
 	}
 
 	// Remove read deadline for rest of session.

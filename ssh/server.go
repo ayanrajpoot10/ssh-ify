@@ -12,6 +12,13 @@ import (
 // NewConfig initializes the SSH server configuration.
 // Loads or generates the host key, sets up password authentication, and returns the config.
 func NewConfig() (*ssh.ServerConfig, error) {
+	// Initialize the authentication system if not already done
+	if GetUserDB() == nil {
+		if err := InitializeAuth(""); err != nil {
+			return nil, fmt.Errorf("failed to initialize authentication: %v", err)
+		}
+	}
+
 	keyPath := "host_key"
 	// Try to read existing host key from disk.
 	privateBytes, err := os.ReadFile(keyPath)
@@ -19,17 +26,17 @@ func NewConfig() (*ssh.ServerConfig, error) {
 		// If not found, generate a new RSA key and save it.
 		privateKey, err := NewRSAPrivateKey(4096)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to generate private key: %v", err)
+			return nil, fmt.Errorf("failed to generate private key: %v", err)
 		}
 		privateBytes = RSAPrivateKeyPEM(privateKey)
 		if err := os.WriteFile(keyPath, privateBytes, 0600); err != nil {
-			return nil, fmt.Errorf("Failed to save generated host key: %v", err)
+			return nil, fmt.Errorf("failed to save generated host key: %v", err)
 		}
 	}
 	// Parse the PEM-encoded private key for SSH server use.
 	private, err := ssh.ParsePrivateKey(privateBytes)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse host key: %v", err)
+		return nil, fmt.Errorf("failed to parse host key: %v", err)
 	}
 	// Set up server config with password authentication.
 	config := &ssh.ServerConfig{

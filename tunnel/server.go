@@ -2,6 +2,7 @@
 package tunnel
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
@@ -12,11 +13,14 @@ import (
 // Server manages incoming connections and proxy logic for the tunnel proxy server.
 // It tracks active connections, handles logging, and ensures thread-safe operations.
 type Server struct {
-	host    string
-	port    int
-	running bool
-	conns   map[*Handler]struct{}
-	mu      sync.Mutex
+	host        string
+	port        int
+	running     bool
+	conns       map[*Handler]struct{}
+	mu          sync.Mutex
+	tlsCertFile string // Path to TLS certificate file
+	tlsKeyFile  string // Path to TLS key file
+	tlsEnabled  bool   // Whether to enable TLS
 }
 
 // AddConnection adds a new connection to the server's active connection map if running.
@@ -66,5 +70,49 @@ func (s *Server) ListenAndServe() {
 		go h.Process()
 	}
 	// Listener closed after shutdown.
+	ln.Close()
+}
+
+// ListenAndServeTLS listens for incoming TLS connections on port 443 and spawns handlers for each connection.
+// Requires valid certificate and key files.
+func (s *Server) ListenAndServeTLS() {
+	if !s.tlsEnabled {
+		log.Println("TLS is not enabled. Skipping ListenAndServeTLS.")
+		return
+	}
+	// Generate self-signed cert if needed
+	err := generateSelfSignedCert(s.tlsCertFile, s.tlsKeyFile)
+	if err != nil {
+		log.Fatalf("Failed to generate self-signed cert: %v", err)
+	}
+	cert, err := tls.LoadX509KeyPair(s.tlsCertFile, s.tlsKeyFile)
+	if err != nil {
+		log.Fatalf("Failed to load TLS certificate or key: %v", err)
+	}
+	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
+	addr := fmt.Sprintf("%s:%d", s.host, 443)
+	tcpLn, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatalf("Failed to listen on TCP for TLS: %v", err)
+	}
+	ln := tls.NewListener(tcpLn, tlsConfig)
+	s.running = true
+	log.Println(fmt.Sprintf("Listening (TLS) on %s", addr))
+	for s.running {
+		// Set deadline for underlying TCP listener
+		if inner, ok := tcpLn.(*net.TCPListener); ok {
+			inner.SetDeadline(time.Now().Add(2 * time.Second))
+		}
+		conn, err := ln.Accept()
+		if err != nil {
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				continue
+			}
+			break
+		}
+		h := &Handler{client: conn, server: s, log: "TLS Connection: " + conn.RemoteAddr().String()}
+		s.Add(h)
+		go h.Process()
+	}
 	ln.Close()
 }

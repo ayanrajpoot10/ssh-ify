@@ -1,50 +1,56 @@
-// Package ssh provides authentication mechanisms for the SSH server, including PAM integration.
+// Package ssh provides authentication mechanisms for the SSH server using a custom user database.
 package ssh
 
 import (
 	"fmt"
 	"log"
 
-	pam "github.com/msteinert/pam/v2"
+	"ssh-ify/usermgmt"
+
 	"golang.org/x/crypto/ssh"
 )
 
-// PAMAuth authenticates a user using PAM (Pluggable Authentication Modules).
-// It returns true if authentication succeeds, false otherwise.
-// This function is used internally for password-based authentication.
-func PAMAuth(user, password string) bool {
-	// Start PAM authentication session with callback for password prompt.
-	t, err := pam.StartFunc("sshd", user, func(s pam.Style, msg string) (string, error) {
-		// Handle different PAM prompt styles.
-		switch s {
-		case pam.PromptEchoOff:
-			// Password prompt (hidden input).
-			return password, nil
-		case pam.TextInfo:
-			// Informational message, no input needed.
-			return "", nil
-		default:
-			// Any other prompt, return empty.
-			return "", nil
-		}
-	})
-	if err != nil {
-		// PAM session failed to start.
-		log.Printf("pamAuth: PAM error for user '%s'", user)
-		return false
-	}
-	// Attempt authentication with PAM.
-	if err := t.Authenticate(0); err != nil {
-		return false
-	}
-	return true
+var (
+	// Global user database instance
+	userDB *usermgmt.UserDB
+)
+
+// InitializeAuth initializes the authentication system with a user database.
+// This must be called before using any authentication functions.
+func InitializeAuth(dbPath string) error {
+	userDB = usermgmt.NewUserDB(dbPath)
+	return nil
 }
 
-// PasswordAuth is an ssh.PasswordCallback for PAM authentication.
-// It validates the provided credentials using PAMAuth and returns permissions or an error.
+// GetUserDB returns the global user database instance.
+// Returns nil if InitializeAuth hasn't been called.
+func GetUserDB() *usermgmt.UserDB {
+	return userDB
+}
+
+// CustomAuth authenticates a user using the custom user database.
+// It returns true if authentication succeeds, false otherwise.
+func CustomAuth(user, password string) bool {
+	if userDB == nil {
+		log.Printf("CustomAuth: user database not initialized")
+		return false
+	}
+
+	success := userDB.Authenticate(user, password)
+	if success {
+		log.Printf("CustomAuth: successful login for user '%s'", user)
+	} else {
+		log.Printf("CustomAuth: failed login attempt for user '%s'", user)
+	}
+
+	return success
+}
+
+// PasswordAuth is an ssh.PasswordCallback for custom authentication.
+// It validates the provided credentials using CustomAuth and returns permissions or an error.
 // Used by the SSH server to authenticate incoming connections.
 func PasswordAuth(c ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
-	if PAMAuth(c.User(), string(password)) {
+	if CustomAuth(c.User(), string(password)) {
 		return nil, nil
 	}
 	return nil, fmt.Errorf("invalid credentials")
