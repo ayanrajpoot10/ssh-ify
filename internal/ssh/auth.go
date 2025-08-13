@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"ssh-ify/usermgmt"
+	"ssh-ify/internal/usermgmt"
 
 	"golang.org/x/crypto/ssh"
 )

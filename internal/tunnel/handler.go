@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	sshserver "ssh-ify/ssh"
+	sshserver "ssh-ify/internal/ssh"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -47,7 +47,6 @@ func (h *Handler) Process() {
 	log.Println(h.log + " - Connection opened at " + h.startTime.Format(time.RFC3339))
 
 	// Set a read deadline to avoid hanging connections.
-	log.Println(h.log + " - Setting client read deadline: " + ClientReadTimeout.String())
 	h.client.SetReadDeadline(time.Now().Add(ClientReadTimeout))
 	reader := bufio.NewReaderSize(h.client, BufferSize)
 	var builder strings.Builder

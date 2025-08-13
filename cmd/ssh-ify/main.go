@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	tunnel "ssh-ify/tunnel"
-	"ssh-ify/usermgmt"
+	tunnel "ssh-ify/internal/tunnel"
+	"ssh-ify/internal/usermgmt"
 )
 
 // main initializes and starts the tunnel proxy server or runs user management.

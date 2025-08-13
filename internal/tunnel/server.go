@@ -50,7 +50,7 @@ func (s *Server) ListenAndServe() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	s.running = true
-	log.Println(fmt.Sprintf("Listening on %s", addr))
+	log.Printf("Listening on %s", addr)
 	for s.running {
 		// Set a short deadline to allow periodic shutdown checks.
 		ln.(*net.TCPListener).SetDeadline(time.Now().Add(2 * time.Second))
@@ -97,7 +97,7 @@ func (s *Server) ListenAndServeTLS() {
 	}
 	ln := tls.NewListener(tcpLn, tlsConfig)
 	s.running = true
-	log.Println(fmt.Sprintf("Listening (TLS) on %s", addr))
+	log.Printf("Listening (TLS) on %s", addr)
 	for s.running {
 		// Set deadline for underlying TCP listener
 		if inner, ok := tcpLn.(*net.TCPListener); ok {
