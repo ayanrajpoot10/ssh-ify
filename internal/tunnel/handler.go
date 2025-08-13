@@ -116,27 +116,6 @@ func (h *Handler) Process() {
 		log.Println(h.log + " - Tunnel established.")
 		h.Relay()
 		return
-	} else if strings.HasPrefix(reqLines[0], "CONNECT ") {
-		log.Println(h.log + " - HTTP CONNECT: " + reqLines[0])
-		parts := strings.Split(reqLines[0], " ")
-		if len(parts) < 2 {
-			// Malformed CONNECT request line.
-			log.Println(h.log + " - Malformed CONNECT request line.")
-			h.client.Write([]byte("HTTP/1.1 400 BadRequest\r\n\r\n"))
-			return
-		}
-		targetAddr := parts[1]
-		// Attempt to connect to requested target.
-		if err := h.ConnectTarget(targetAddr); err != nil {
-			log.Println(h.log + " - Error connecting to target: " + err.Error())
-			h.client.Write([]byte("HTTP/1.1 502 BadGateway\r\n\r\n"))
-			return
-		}
-		// Connection established, inform client.
-		h.client.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
-		log.Println(h.log + " - Tunnel established.")
-		h.Relay()
-		return
 	} else if upgrade != "" {
 		// Other upgrade header present (not websocket).
 		log.Println(h.log + " - Upgrade header present: " + upgrade)
