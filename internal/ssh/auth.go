@@ -28,30 +28,21 @@ func GetUserDB() *usermgmt.UserDB {
 	return userDB
 }
 
-// CustomAuth authenticates a user using the custom user database.
-// It returns true if authentication succeeds, false otherwise.
-func CustomAuth(user, password string) bool {
-	if userDB == nil {
-		log.Printf("CustomAuth: user database not initialized")
-		return false
-	}
-
-	success := userDB.Authenticate(user, password)
-	if success {
-		log.Printf("CustomAuth: successful login for user '%s'", user)
-	} else {
-		log.Printf("CustomAuth: failed login attempt for user '%s'", user)
-	}
-
-	return success
-}
-
 // PasswordAuth is an ssh.PasswordCallback for custom authentication.
-// It validates the provided credentials using CustomAuth and returns permissions or an error.
+// It validates the provided credentials using the user database and returns permissions or an error.
 // Used by the SSH server to authenticate incoming connections.
 func PasswordAuth(c ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
-	if CustomAuth(c.User(), string(password)) {
-		return nil, nil
+	if userDB == nil {
+		log.Printf("PasswordAuth: user database not initialized")
+		return nil, fmt.Errorf("user database not initialized")
 	}
-	return nil, fmt.Errorf("invalid credentials")
+
+	success := userDB.Authenticate(c.User(), string(password))
+	if success {
+		log.Printf("PasswordAuth: successful login for user '%s'", c.User())
+		return nil, nil
+	} else {
+		log.Printf("PasswordAuth: failed login attempt for user '%s'", c.User())
+		return nil, fmt.Errorf("invalid credentials")
+	}
 }
