@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"ssh-ify/pkg/certgen"
@@ -49,6 +52,7 @@ func (s *Server) ListenAndServe() {
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
+	defer ln.Close()
 	s.running = true
 	log.Printf("Listening on %s", addr)
 	for s.running {
@@ -67,8 +71,6 @@ func (s *Server) ListenAndServe() {
 		h := &Handler{client: conn, server: s, log: "Connection: " + conn.RemoteAddr().String()}
 		go h.Process()
 	}
-	// Listener closed after shutdown.
-	ln.Close()
 }
 
 // ListenAndServeTLS listens for incoming TLS connections on port 443 and spawns handlers for each connection.
@@ -90,6 +92,7 @@ func (s *Server) ListenAndServeTLS() {
 		log.Fatalf("Failed to listen on TCP for TLS: %v", err)
 	}
 	ln := tls.NewListener(tcpLn, tlsConfig)
+	defer ln.Close()
 	s.running = true
 	log.Printf("Listening (TLS) on %s", addr)
 	for s.running {
@@ -107,5 +110,37 @@ func (s *Server) ListenAndServeTLS() {
 		h := &Handler{client: conn, server: s, log: "TLS Connection: " + conn.RemoteAddr().String()}
 		go h.Process()
 	}
-	ln.Close()
+}
+
+// NewServer constructs a new Server with default configuration values.
+func NewServer() *Server {
+	return &Server{
+		host:        DefaultListenAddress,
+		port:        DefaultListenPort,
+		running:     true,
+		conns:       sync.Map{},
+		tlsCertFile: "cert.pem",
+		tlsKeyFile:  "key.pem",
+	}
+}
+
+// StartServer starts the proxy server and manages its lifecycle.
+// Sets up signal handling for graceful shutdown and runs the server in a goroutine.
+func StartServer() {
+	s := NewServer()
+
+	// Create a channel to receive OS signals for graceful shutdown.
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	// Start the TCP server in a separate goroutine.
+	go s.ListenAndServe()
+	// Start the TLS server in a separate goroutine.
+	go s.ListenAndServeTLS()
+
+	// Block until a shutdown signal is received (e.g., Ctrl+C or SIGTERM).
+	<-c
+	// Signal received: stop the server and log shutdown.
+	s.running = false
+	log.Println("Shutting down...")
 }
