@@ -17,7 +17,6 @@ type User struct {
 	Username     string     `json:"username"`
 	PasswordHash string     `json:"password_hash"`
 	CreatedAt    time.Time  `json:"created_at"`
-	LastLogin    *time.Time `json:"last_login,omitempty"`
 	Enabled      bool       `json:"enabled"`
 }
 
@@ -238,7 +237,6 @@ func (db *UserDB) GetUserInfo(username string) (*User, error) {
 	return &User{
 		Username:  user.Username,
 		CreatedAt: user.CreatedAt,
-		LastLogin: user.LastLogin,
 		Enabled:   user.Enabled,
 	}, nil
 }
