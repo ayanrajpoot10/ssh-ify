@@ -1,5 +1,5 @@
-// Package tunnel provides certificate generation utilities for the proxy server.
-package tunnel
+// Package certgen provides certificate generation utilities for the proxy server.
+package certgen
 
 import (
 	"crypto/rand"
@@ -13,8 +13,8 @@ import (
 	"time"
 )
 
-// generateCert generates a self-signed certificate and key and saves them to certFile and keyFile.
-func generateCert(certFile, keyFile string) error {
+// GenerateCert generates a self-signed certificate and key and saves them to certFile and keyFile.
+func GenerateCert(certFile, keyFile string) error {
 	// Check if files already exist
 	if _, err := os.Stat(certFile); err == nil {
 		if _, err := os.Stat(keyFile); err == nil {

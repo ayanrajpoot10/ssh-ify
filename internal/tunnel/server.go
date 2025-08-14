@@ -8,6 +8,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"ssh-ify/pkg/certgen"
 )
 
 // Server manages incoming connections and proxy logic for the tunnel proxy server.
@@ -73,7 +75,7 @@ func (s *Server) ListenAndServe() {
 // Requires valid certificate and key files.
 func (s *Server) ListenAndServeTLS() {
 	// Always run TLS server
-	err := generateCert(s.tlsCertFile, s.tlsKeyFile)
+	err := certgen.GenerateCert(s.tlsCertFile, s.tlsKeyFile)
 	if err != nil {
 		log.Fatalf("Failed to generate self-signed cert: %v", err)
 	}
