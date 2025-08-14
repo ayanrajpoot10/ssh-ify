@@ -9,6 +9,9 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// Re-export ServerConfig so tunnel/handler.go can use it without importing golang.org/x/crypto/ssh
+type ServerConfig = ssh.ServerConfig
+
 // NewConfig initializes the SSH server configuration.
 // Loads or generates the host key, sets up password authentication, and returns the config.
 func NewConfig() (*ssh.ServerConfig, error) {

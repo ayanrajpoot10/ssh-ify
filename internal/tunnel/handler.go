@@ -10,9 +10,7 @@ import (
 	"sync"
 	"time"
 
-	sshserver "ssh-ify/internal/ssh"
-
-	"golang.org/x/crypto/ssh"
+	"ssh-ify/internal/ssh"
 )
 
 // Handler manages a single client connection, including target connection, logging, and SSH upgrades.
@@ -89,37 +87,30 @@ func (h *Handler) Process() {
 	// Remove read deadline for rest of session.
 	h.client.SetReadDeadline(time.Time{})
 
-	// Detect WebSocket upgrade (used for SSH tunneling).
-	upgrade := HeaderValue(buf, "Upgrade")
-	if upgrade == "websocket" {
-		log.Println(h.log + " - WebSocket upgrade: using in-process SSH server.")
-		// net.Pipe creates a pair of connected endpoints for tunneling.
-		proxyEnd, sshEnd := net.Pipe()
-		// Lazily initialize SSH config if needed.
-		if h.sshConfig == nil {
-			var err error
-			h.sshConfig, err = sshserver.NewConfig()
-			if err != nil {
-				log.Println(h.log + " - Error initializing SSH config: " + err.Error())
-				return
-			}
+	// Assume all connections are for SSH over WebSocket (no protocol check needed).
+	log.Println(h.log + " - WebSocket upgrade: using in-process SSH server.")
+	// net.Pipe creates a pair of connected endpoints for tunneling.
+	proxyEnd, sshEnd := net.Pipe()
+	// Lazily initialize SSH config if needed.
+	if h.sshConfig == nil {
+		var err error
+		h.sshConfig, err = ssh.NewConfig()
+		if err != nil {
+			log.Println(h.log + " - Error initializing SSH config: " + err.Error())
+			return
 		}
-		// Start SSH handler in a goroutine for the tunnel endpoint.
-		go sshserver.ServeConn(sshEnd, h.sshConfig, func() {
-			// Add connection to manager only after successful SSH authentication
-			h.server.Add(h)
-		})
-		h.target = proxyEnd
-		h.targetClosed = false
-		// Respond to client with protocol upgrade.
-		h.client.Write([]byte(WebSocketUpgradeResponse))
-		log.Println(h.log + " - Tunnel established.")
-		h.Relay()
-		return
-	} else if upgrade != "" {
-		// Other upgrade header present (not websocket).
-		log.Println(h.log + " - Upgrade header present: " + upgrade)
 	}
+	// Start SSH handler in a goroutine for the tunnel endpoint.
+	go ssh.ServeConn(sshEnd, h.sshConfig, func() {
+		// Add connection to manager only after successful SSH authentication
+		h.server.Add(h)
+	})
+	h.target = proxyEnd
+	h.targetClosed = false
+	// Respond to client with protocol upgrade.
+	h.client.Write([]byte(WebSocketUpgradeResponse))
+	log.Println(h.log + " - Tunnel established.")
+	h.Relay()
 }
 
 // Relay relays data bidirectionally between the client and target connection using goroutines.
