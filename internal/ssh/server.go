@@ -55,7 +55,8 @@ func NewConfig() (*ssh.ServerConfig, error) {
 
 // ServeConn handles an incoming SSH connection.
 // Accepts the connection, processes channels, and ensures proper cleanup.
-func ServeConn(conn net.Conn, config *ssh.ServerConfig) {
+// onAuthSuccess is an optional callback that gets called after successful SSH authentication.
+func ServeConn(conn net.Conn, config *ssh.ServerConfig, onAuthSuccess func()) {
 	// Accept the incoming SSH connection and extract channels/requests.
 	sshConn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
@@ -63,6 +64,12 @@ func ServeConn(conn net.Conn, config *ssh.ServerConfig) {
 		conn.Close()
 		return
 	}
+
+	// Call the success callback if provided (authentication was successful)
+	if onAuthSuccess != nil {
+		onAuthSuccess()
+	}
+
 	// Discard global requests (not used).
 	go ssh.DiscardRequests(reqs)
 	// Handle port forwarding channels.

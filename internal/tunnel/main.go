@@ -5,19 +5,19 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 )
 
-// StartProxyServer starts the proxy server and manages its lifecycle.
+// StartServer starts the proxy server and manages its lifecycle.
 // Sets up signal handling for graceful shutdown and runs the server in a goroutine.
-func StartProxyServer() {
+func StartServer() {
 	// Initialize the proxy server with listening address and port, and TLS config.
 	s := &Server{
 		host:        DefaultListenAddress,
 		port:        DefaultListenPort,
 		running:     true,
-		conns:       make(map[*Handler]struct{}),
-		tlsEnabled:  true,
+		conns:       sync.Map{},
 		tlsCertFile: "cert.pem",
 		tlsKeyFile:  "key.pem",
 	}

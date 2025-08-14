@@ -13,8 +13,8 @@ import (
 	"time"
 )
 
-// generateSelfSignedCert generates a self-signed certificate and key and saves them to certFile and keyFile.
-func generateSelfSignedCert(certFile, keyFile string) error {
+// generateCert generates a self-signed certificate and key and saves them to certFile and keyFile.
+func generateCert(certFile, keyFile string) error {
 	// Check if files already exist
 	if _, err := os.Stat(certFile); err == nil {
 		if _, err := os.Stat(keyFile); err == nil {

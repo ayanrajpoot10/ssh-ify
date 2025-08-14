@@ -16,29 +16,27 @@ type Server struct {
 	host        string
 	port        int
 	running     bool
-	conns       map[*Handler]struct{}
-	mu          sync.Mutex
-	tlsCertFile string // Path to TLS certificate file
-	tlsKeyFile  string // Path to TLS key file
-	tlsEnabled  bool   // Whether to enable TLS
+	conns       sync.Map // map[*Handler]struct{} for concurrency safety
+	tlsCertFile string   // Path to TLS certificate file
+	tlsKeyFile  string   // Path to TLS key file
 }
 
-// AddConnection adds a new connection to the server's active connection map if running.
+// Add adds a new connection to the server's active connection map if running.
 func (s *Server) Add(conn *Handler) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.running {
-		s.conns[conn] = struct{}{}
-		log.Println("Connection added. Active:", len(s.conns))
+		s.conns.Store(conn, struct{}{})
+		active := 0
+		s.conns.Range(func(_, _ interface{}) bool { active++; return true })
+		log.Println("Connection added. Active:", active)
 	}
 }
 
-// RemoveConnection removes a connection from the server's active connection map.
+// Remove removes a connection from the server's active connection map.
 func (s *Server) Remove(conn *Handler) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.conns, conn)
-	log.Println("Connection removed. Active:", len(s.conns))
+	s.conns.Delete(conn)
+	active := 0
+	s.conns.Range(func(_, _ interface{}) bool { active++; return true })
+	log.Println("Connection removed. Active:", active)
 }
 
 // ListenAndServe listens for incoming TCP connections and spawns handlers for each connection.
@@ -65,8 +63,6 @@ func (s *Server) ListenAndServe() {
 		}
 		// Create a handler for each new connection.
 		h := &Handler{client: conn, server: s, log: "Connection: " + conn.RemoteAddr().String()}
-		s.Add(h)
-		// Handle connection concurrently.
 		go h.Process()
 	}
 	// Listener closed after shutdown.
@@ -76,12 +72,8 @@ func (s *Server) ListenAndServe() {
 // ListenAndServeTLS listens for incoming TLS connections on port 443 and spawns handlers for each connection.
 // Requires valid certificate and key files.
 func (s *Server) ListenAndServeTLS() {
-	if !s.tlsEnabled {
-		log.Println("TLS is not enabled. Skipping ListenAndServeTLS.")
-		return
-	}
-	// Generate self-signed cert if needed
-	err := generateSelfSignedCert(s.tlsCertFile, s.tlsKeyFile)
+	// Always run TLS server
+	err := generateCert(s.tlsCertFile, s.tlsKeyFile)
 	if err != nil {
 		log.Fatalf("Failed to generate self-signed cert: %v", err)
 	}
@@ -111,7 +103,6 @@ func (s *Server) ListenAndServeTLS() {
 			break
 		}
 		h := &Handler{client: conn, server: s, log: "TLS Connection: " + conn.RemoteAddr().String()}
-		s.Add(h)
 		go h.Process()
 	}
 	ln.Close()

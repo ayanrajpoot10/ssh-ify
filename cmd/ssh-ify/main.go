@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	tunnel "ssh-ify/internal/tunnel"
+	"ssh-ify/internal/tunnel"
 	"ssh-ify/internal/usermgmt"
 )
 
@@ -89,8 +89,8 @@ func main() {
 		}
 	}
 
-	// Start the proxy server defined in the tunnel package.
-	tunnel.StartProxyServer()
+	// Start the server defined in the tunnel package.
+	tunnel.StartServer()
 }
 
 // printUsage displays usage information.
@@ -98,7 +98,7 @@ func printUsage() {
 	fmt.Println("SSH-ify - SSH Tunnel Proxy Server")
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  ssh-ify                           - Start the proxy server")
+	fmt.Println("  ssh-ify                           - Start the server")
 	fmt.Println("  ssh-ify user-mgmt                 - Interactive user management")
 	fmt.Println("  ssh-ify add-user <user> <pass>    - Add a user")
 	fmt.Println("  ssh-ify remove-user <user>        - Remove a user")

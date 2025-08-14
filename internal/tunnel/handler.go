@@ -3,7 +3,6 @@ package tunnel
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -24,7 +23,6 @@ type Handler struct {
 	clientClosed bool
 	targetClosed bool
 	log          string
-	startTime    time.Time
 	sshConfig    *ssh.ServerConfig
 }
 
@@ -43,8 +41,7 @@ func (h *Handler) Close() {
 // Process processes the client connection, parses the HTTP request, detects upgrades, and manages tunnel establishment.
 // Handles WebSocket upgrades, HTTP CONNECT, and logs all major events and errors.
 func (h *Handler) Process() {
-	h.startTime = time.Now()
-	log.Println(h.log + " - Connection opened at " + h.startTime.Format(time.RFC3339))
+	log.Println(h.log + " - New Connection opened")
 
 	// Set a read deadline to avoid hanging connections.
 	h.client.SetReadDeadline(time.Now().Add(ClientReadTimeout))
@@ -66,7 +63,7 @@ func (h *Handler) Process() {
 		// Prevent header overflow attacks.
 		if builder.Len() > BufferSize {
 			log.Println(h.log + " - error: header too large")
-			h.client.Write([]byte("HTTP/1.1 400 HeaderTooLarge\r\n\r\n"))
+			h.client.Write([]byte("HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n"))
 			return
 		}
 	}
@@ -108,7 +105,10 @@ func (h *Handler) Process() {
 			}
 		}
 		// Start SSH handler in a goroutine for the tunnel endpoint.
-		go sshserver.ServeConn(sshEnd, h.sshConfig)
+		go sshserver.ServeConn(sshEnd, h.sshConfig, func() {
+			// Add connection to manager only after successful SSH authentication
+			h.server.Add(h)
+		})
 		h.target = proxyEnd
 		h.targetClosed = false
 		// Respond to client with protocol upgrade.
@@ -120,31 +120,6 @@ func (h *Handler) Process() {
 		// Other upgrade header present (not websocket).
 		log.Println(h.log + " - Upgrade header present: " + upgrade)
 	}
-}
-
-// ConnectTarget establishes a TCP connection to the specified host and port.
-// Returns an error if the connection fails.
-func (h *Handler) ConnectTarget(host string) error {
-	var port string
-	// Parse host:port, default to DefaultListenPort if not specified.
-	if i := strings.Index(host, ":"); i != -1 {
-		port = host[i+1:]
-		host = host[:i]
-	} else {
-		port = fmt.Sprintf("%d", DefaultListenPort)
-	}
-	addr := net.JoinHostPort(host, port)
-	log.Println(h.log + " - Connecting to target: " + addr)
-	// Use DialTimeout to avoid hanging on unreachable targets.
-	target, err := net.DialTimeout("tcp", addr, 10*time.Second)
-	if err != nil {
-		log.Println(h.log + " - Error connecting to target: " + err.Error())
-		return err
-	}
-	log.Println(h.log + " - Connected to target: " + addr)
-	h.target = target
-	h.targetClosed = false
-	return nil
 }
 
 // Relay relays data bidirectionally between the client and target connection using goroutines.
