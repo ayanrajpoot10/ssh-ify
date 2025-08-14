@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"ssh-ify/pkg/certgen"
@@ -19,6 +20,7 @@ type Server struct {
 	port        int
 	running     bool
 	conns       sync.Map // map[*Handler]struct{} for concurrency safety
+	activeCount int32    // atomic counter for active connections
 	tlsCertFile string   // Path to TLS certificate file
 	tlsKeyFile  string   // Path to TLS key file
 }
@@ -27,18 +29,16 @@ type Server struct {
 func (s *Server) Add(conn *Handler) {
 	if s.running {
 		s.conns.Store(conn, struct{}{})
-		active := 0
-		s.conns.Range(func(_, _ interface{}) bool { active++; return true })
-		log.Println("Connection added. Active:", active)
+		newCount := atomic.AddInt32(&s.activeCount, 1)
+		log.Println("Connection added. Active:", newCount)
 	}
 }
 
 // Remove removes a connection from the server's active connection map.
 func (s *Server) Remove(conn *Handler) {
 	s.conns.Delete(conn)
-	active := 0
-	s.conns.Range(func(_, _ interface{}) bool { active++; return true })
-	log.Println("Connection removed. Active:", active)
+	newCount := atomic.AddInt32(&s.activeCount, -1)
+	log.Println("Connection removed. Active:", newCount)
 }
 
 // ListenAndServe listens for incoming TCP connections and spawns handlers for each connection.
