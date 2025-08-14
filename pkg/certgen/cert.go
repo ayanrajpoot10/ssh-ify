@@ -15,19 +15,24 @@ import (
 
 // GenerateCert generates a self-signed certificate and key and saves them to certFile and keyFile.
 func GenerateCert(certFile, keyFile string) error {
-	// Check if files already exist
-	if _, err := os.Stat(certFile); err == nil {
-		if _, err := os.Stat(keyFile); err == nil {
-			return nil // Both exist
-		}
+	// Return early if both cert and key files exist
+	if fileExists(certFile) && fileExists(keyFile) {
+		return nil
 	}
+
 	// Generate private key
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return fmt.Errorf("failed to generate private key: %v", err)
+		return fmt.Errorf("failed to generate private key: %w", err)
 	}
-	// Create certificate template
-	serialNumber, _ := rand.Int(rand.Reader, big.NewInt(1<<62))
+
+	// Generate serial number
+	serialNumber, err := rand.Int(rand.Reader, big.NewInt(1<<62))
+	if err != nil {
+		return fmt.Errorf("failed to generate serial number: %w", err)
+	}
+
+	// Certificate template
 	tmpl := x509.Certificate{
 		SerialNumber:          serialNumber,
 		Subject:               pkix.Name{Organization: []string{"ssh-ify"}},
@@ -38,24 +43,42 @@ func GenerateCert(certFile, keyFile string) error {
 		BasicConstraintsValid: true,
 		DNSNames:              []string{"localhost"},
 	}
+
 	// Create certificate
 	derBytes, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &priv.PublicKey, priv)
 	if err != nil {
-		return fmt.Errorf("failed to create certificate: %v", err)
+		return fmt.Errorf("failed to create certificate: %w", err)
 	}
-	// Write cert
-	certOut, err := os.Create(certFile)
-	if err != nil {
-		return fmt.Errorf("failed to open cert file: %v", err)
+
+	// Write certificate to file
+	if err := writePemToFile(certFile, "CERTIFICATE", derBytes); err != nil {
+		return fmt.Errorf("failed to write certificate: %w", err)
 	}
-	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	certOut.Close()
-	// Write key
-	keyOut, err := os.Create(keyFile)
-	if err != nil {
-		return fmt.Errorf("failed to open key file: %v", err)
+
+	// Write private key to file
+	keyBytes := x509.MarshalPKCS1PrivateKey(priv)
+	if err := writePemToFile(keyFile, "RSA PRIVATE KEY", keyBytes); err != nil {
+		return fmt.Errorf("failed to write private key: %w", err)
 	}
-	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
-	keyOut.Close()
+
 	return nil
+}
+
+// fileExists checks if a file exists and is not a directory.
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
+}
+
+// writePemToFile writes PEM-encoded data to a file.
+func writePemToFile(filename, pemType string, bytes []byte) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return pem.Encode(f, &pem.Block{Type: pemType, Bytes: bytes})
 }
