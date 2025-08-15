@@ -11,7 +11,11 @@ import (
 const (
 	BufferSize               = 4096 * 4
 	ClientReadTimeout        = 60 * time.Second
-	WebSocketUpgradeResponse = "HTTP/1.1 101 Switching Protocols\r\nContent-Length: 104857600000\r\n\r\n"
+	WebSocketUpgradeResponse = "HTTP/1.1 101 Switching Protocols\r\n" +
+		"Upgrade: websocket\r\n" +
+		"Connection: Upgrade\r\n" +
+		"Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n" +
+		"Sec-WebSocket-Version: 13\r\n\r\n"
 )
 
 // listeningAddr is the address the proxy server listens on.
