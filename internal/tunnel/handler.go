@@ -1,4 +1,3 @@
-// Package tunnel provides connection handling logic for the proxy server, including HTTP and WebSocket upgrades.
 package tunnel
 
 import (

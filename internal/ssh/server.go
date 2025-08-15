@@ -1,4 +1,3 @@
-// Package ssh implements the SSH server configuration and connection handling logic.
 package ssh
 
 import (

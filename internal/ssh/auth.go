@@ -1,4 +1,3 @@
-// Package ssh provides authentication mechanisms for the SSH server using a custom user database.
 package ssh
 
 import (

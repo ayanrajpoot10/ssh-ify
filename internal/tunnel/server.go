@@ -1,4 +1,3 @@
-// Package tunnel implements the proxy server, managing incoming connections and concurrency.
 package tunnel
 
 import (

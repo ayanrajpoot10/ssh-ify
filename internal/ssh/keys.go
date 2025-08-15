@@ -1,4 +1,3 @@
-// Package ssh provides key generation and encoding utilities for the SSH server.
 package ssh
 
 import (

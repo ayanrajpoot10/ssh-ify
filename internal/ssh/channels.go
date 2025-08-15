@@ -1,4 +1,3 @@
-// Package ssh handles SSH channel management and port forwarding logic for the proxy server.
 package ssh
 
 import (

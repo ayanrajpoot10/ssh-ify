@@ -1,4 +1,3 @@
-// Package tunnel provides utility functions and constants for the proxy server.
 package tunnel
 
 import (
