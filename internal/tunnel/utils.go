@@ -5,9 +5,12 @@ import (
 	"time"
 )
 
-// BufferSize defines the buffer size for reading client requests.
-// ClientReadTimeout specifies the read deadline for client connections.
-// WebSocketUpgradeResponse is the HTTP response sent for protocol upgrades.
+// BufferSize defines the buffer size (in bytes) for reading client requests.
+//
+// ClientReadTimeout specifies the maximum duration to wait for client data before timing out.
+//
+// WebSocketUpgradeResponse is the HTTP response sent to clients to acknowledge a successful
+// WebSocket protocol upgrade. This is used to establish SSH-over-WebSocket tunnels.
 const (
 	BufferSize               = 4096 * 4
 	ClientReadTimeout        = 60 * time.Second
@@ -18,24 +21,38 @@ const (
 		"Sec-WebSocket-Version: 13\r\n\r\n"
 )
 
-// listeningAddr is the address the proxy server listens on.
-// listeningPort is the port the proxy server listens on.
+// DefaultListenAddress is the default address the proxy server listens on (all interfaces).
+// DefaultListenPort is the default port the proxy server listens on (HTTP/WS).
 var (
 	DefaultListenAddress string = "0.0.0.0"
 	DefaultListenPort    int    = 80
 )
 
-// HeaderValue extracts the value of a header from the HTTP request string.
-// Returns the header value or an empty string if not found.
-func HeaderValue(request, headerName string) string {
-	idx := strings.Index(request, headerName+": ")
-	if idx == -1 {
-		return ""
+// HeaderValue extracts the value of a specific HTTP header from a slice of header lines.
+//
+// It performs a case-insensitive search for the header name and returns the value if found, or an empty string otherwise.
+// This utility is used for parsing incoming client requests and extracting metadata such as Host or custom headers.
+//
+// Parameters:
+//   - headers: Slice of header lines (e.g., from strings.Split(request, "\r\n")).
+//   - headerName: The name of the header to extract (case-insensitive).
+//
+// Returns:
+//   - string: The value of the header, or "" if not found.
+func HeaderValue(headers []string, headerName string) string {
+	headerNameLower := strings.ToLower(headerName)
+	for _, line := range headers {
+		line = strings.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		if strings.ToLower(strings.TrimSpace(parts[0])) == headerNameLower {
+			return strings.TrimSpace(parts[1])
+		}
 	}
-	start := idx + len(headerName) + 2
-	end := strings.Index(request[start:], "\r\n")
-	if end == -1 {
-		return ""
-	}
-	return request[start : start+end]
+	return ""
 }

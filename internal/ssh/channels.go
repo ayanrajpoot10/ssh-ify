@@ -12,8 +12,16 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// ForwardData handles bidirectional data transfer between an SSH channel and the target TCP connection.
-// It launches goroutines for each direction and ensures proper resource cleanup.
+// ForwardData relays data bidirectionally between an SSH channel and a target TCP connection.
+//
+// This function launches goroutines for each direction (SSH→target and target→SSH),
+// ensuring efficient, concurrent data transfer. It waits for both directions to complete
+// and then closes both connections to free resources.
+//
+// Parameters:
+//   - ch: The SSH channel to relay data from/to.
+//   - targetConn: The TCP connection to the target host.
+//   - addr: The address of the target host (for logging).
 func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -37,9 +45,15 @@ func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 	ch.Close()
 }
 
-// ServePortForward processes incoming SSH channels for port forwarding.
-// Supports direct-tcpip requests and rejects unsupported or malformed channels.
-// Each accepted channel is handled in a separate goroutine for concurrency.
+// ServePortForward processes incoming SSH channels for port forwarding (direct-tcpip).
+//
+// It accepts only "direct-tcpip" channel types, parses the target address and port,
+// and establishes a TCP connection to the requested destination. Each accepted channel
+// is handled in a separate goroutine for concurrency. Unsupported or malformed channels
+// are rejected with appropriate error messages.
+//
+// Parameters:
+//   - chans: Channel of incoming SSH NewChannel requests.
 func ServePortForward(chans <-chan ssh.NewChannel) {
 	for newChannel := range chans {
 		var targetHost string

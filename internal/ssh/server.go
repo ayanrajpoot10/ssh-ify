@@ -8,11 +8,20 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Re-export ServerConfig so tunnel/handler.go can use it without importing golang.org/x/crypto/ssh
+// ServerConfig is a type alias for ssh.ServerConfig, re-exported so tunnel/session.go
+// can use it without directly importing golang.org/x/crypto/ssh. This improves modularity
+// and encapsulation of SSH server configuration details.
 type ServerConfig = ssh.ServerConfig
 
-// NewConfig initializes the SSH server configuration.
-// Loads or generates the host key, sets up password authentication, and returns the config.
+// NewConfig initializes and returns a new SSH server configuration for ssh-ify.
+//
+// This function loads or generates the SSH host key, sets up password authentication
+// using the user database, and configures the SSH version banner. It ensures the
+// authentication system is initialized before returning a usable config.
+//
+// Returns:
+//   - *ssh.ServerConfig: The configured SSH server settings.
+//   - error: If host key generation, loading, or parsing fails, or if authentication cannot be initialized.
 func NewConfig() (*ssh.ServerConfig, error) {
 	// Initialize the authentication system if not already done
 	if GetUserDB() == nil {
@@ -55,9 +64,16 @@ func NewConfig() (*ssh.ServerConfig, error) {
 	return config, nil
 }
 
-// ServeConn handles an incoming SSH connection.
-// Accepts the connection, processes channels, and ensures proper cleanup.
-// onAuthSuccess is an optional callback that gets called after successful SSH authentication.
+// ServeConn handles an incoming SSH connection for the ssh-ify server.
+//
+// It performs the SSH handshake, processes port forwarding channels, and ensures
+// proper cleanup of resources. The optional onAuthSuccess callback is invoked after
+// successful authentication, allowing for custom logic (such as connection tracking).
+//
+// Parameters:
+//   - conn: The underlying network connection to upgrade to SSH.
+//   - config: The SSH server configuration (typically from NewConfig).
+//   - onAuthSuccess: Optional callback invoked after successful authentication.
 func ServeConn(conn net.Conn, config *ssh.ServerConfig, onAuthSuccess func()) {
 	// Accept the incoming SSH connection and extract channels/requests.
 	sshConn, chans, reqs, err := ssh.NewServerConn(conn, config)

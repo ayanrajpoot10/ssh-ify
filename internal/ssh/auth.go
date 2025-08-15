@@ -14,22 +14,42 @@ var (
 	userDB *usermgmt.UserDB
 )
 
-// InitializeAuth initializes the authentication system with a user database.
-// This must be called before using any authentication functions.
+// InitializeAuth sets up the global authentication system for SSH password validation.
+//
+// It creates a new user database instance (optionally at dbPath) and must be called
+// before any authentication or user management functions are used. This enables
+// password-based authentication for the SSH server.
+//
+// Parameters:
+//   - dbPath: Path to the user database file. If empty, uses the default location.
+//
+// Returns:
+//   - error: If initialization fails (should not occur in current implementation).
 func InitializeAuth(dbPath string) error {
 	userDB = usermgmt.NewUserDB(dbPath)
 	return nil
 }
 
-// GetUserDB returns the global user database instance.
-// Returns nil if InitializeAuth hasn't been called.
+// GetUserDB returns the global user database instance used for authentication.
+//
+// Returns nil if InitializeAuth has not been called. This function is used by
+// authentication callbacks and other internal components to access user data.
 func GetUserDB() *usermgmt.UserDB {
 	return userDB
 }
 
-// PasswordAuth is an ssh.PasswordCallback for custom authentication.
-// It validates the provided credentials using the user database and returns permissions or an error.
-// Used by the SSH server to authenticate incoming connections.
+// PasswordAuth implements ssh.PasswordCallback for custom SSH authentication.
+//
+// It validates the provided username and password against the user database and returns
+// SSH permissions or an error. Used by the SSH server to authenticate incoming connections.
+//
+// Parameters:
+//   - c: SSH connection metadata (contains username).
+//   - password: The password provided by the client.
+//
+// Returns:
+//   - *ssh.Permissions: Always nil (no custom permissions used).
+//   - error: If authentication fails or the user database is not initialized.
 func PasswordAuth(c ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 	if userDB == nil {
 		log.Printf("PasswordAuth: user database not initialized")

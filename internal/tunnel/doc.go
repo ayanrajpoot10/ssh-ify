@@ -11,7 +11,7 @@
 // Usage:
 //  1. Create a new Server with NewServer
 //  2. Start the server using ListenAndServe (for TCP) and ListenAndServeTLS (for TLS)
-//  3. Each incoming connection is handled by a Handler, which manages protocol upgrades and relays data
+//  3. Each incoming connection is handled by a Session, which manages protocol upgrades and relays data
 //  4. Utility functions and constants are available in utils.go for request parsing and configuration
 //
 // This package is intended for use by the ssh-ify proxy server and related internal components.
