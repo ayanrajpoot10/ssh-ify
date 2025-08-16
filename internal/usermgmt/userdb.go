@@ -14,10 +14,10 @@ import (
 
 // User represents a user account in the system.
 type User struct {
-	Username     string     `json:"username"`
-	PasswordHash string     `json:"password_hash"`
-	CreatedAt    time.Time  `json:"created_at"`
-	Enabled      bool       `json:"enabled"`
+	Username     string    `json:"username"`
+	PasswordHash string    `json:"password_hash"`
+	CreatedAt    time.Time `json:"created_at"`
+	Enabled      bool      `json:"enabled"`
 }
 
 // UserDB manages user accounts with thread-safe operations.
@@ -100,7 +100,10 @@ func (db *UserDB) AddUser(username, password string) error {
 		delete(db.users, username)
 		return fmt.Errorf("failed to save user database: %v", err)
 	}
-
+	// Reload from file
+	if err := db.ReloadFromFile(); err != nil {
+		return fmt.Errorf("failed to reload user database: %v", err)
+	}
 	return nil
 }
 
@@ -119,7 +122,10 @@ func (db *UserDB) RemoveUser(username string) error {
 	if err := db.saveToFile(); err != nil {
 		return fmt.Errorf("failed to save user database: %v", err)
 	}
-
+	// Reload from file
+	if err := db.ReloadFromFile(); err != nil {
+		return fmt.Errorf("failed to reload user database: %v", err)
+	}
 	return nil
 }
 
@@ -150,7 +156,10 @@ func (db *UserDB) UpdatePassword(username, newPassword string) error {
 	if err := db.saveToFile(); err != nil {
 		return fmt.Errorf("failed to save user database: %v", err)
 	}
-
+	// Reload from file
+	if err := db.ReloadFromFile(); err != nil {
+		return fmt.Errorf("failed to reload user database: %v", err)
+	}
 	return nil
 }
 
@@ -170,7 +179,10 @@ func (db *UserDB) EnableUser(username string) error {
 	if err := db.saveToFile(); err != nil {
 		return fmt.Errorf("failed to save user database: %v", err)
 	}
-
+	// Reload from file
+	if err := db.ReloadFromFile(); err != nil {
+		return fmt.Errorf("failed to reload user database: %v", err)
+	}
 	return nil
 }
 
@@ -190,7 +202,10 @@ func (db *UserDB) DisableUser(username string) error {
 	if err := db.saveToFile(); err != nil {
 		return fmt.Errorf("failed to save user database: %v", err)
 	}
-
+	// Reload from file
+	if err := db.ReloadFromFile(); err != nil {
+		return fmt.Errorf("failed to reload user database: %v", err)
+	}
 	return nil
 }
 
@@ -285,6 +300,40 @@ func (db *UserDB) loadFromFile() error {
 	}
 
 	return json.Unmarshal(data, &db.users)
+}
+
+// ReloadFromFile reloads the user database from disk into memory.
+func (db *UserDB) ReloadFromFile() error {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
+	file, err := os.Open(db.filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist yet, start with empty database
+			db.users = make(map[string]*User)
+			return nil
+		}
+		return err
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return err
+	}
+
+	if len(data) == 0 {
+		db.users = make(map[string]*User)
+		return nil
+	}
+
+	users := make(map[string]*User)
+	if err := json.Unmarshal(data, &users); err != nil {
+		return err
+	}
+	db.users = users
+	return nil
 }
 
 // BackupDB creates a backup of the user database.
