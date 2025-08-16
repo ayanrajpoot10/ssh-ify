@@ -84,12 +84,26 @@ func HandleSSHForwardChannels(chans <-chan ssh.NewChannel) {
 	}
 }
 
-// isDirectTCPIPChannel checks if the channel type is "direct-tcpip".
+// isDirectTCPIPChannel reports whether the provided SSH channel is of type "direct-tcpip".
+//
+// Parameters:
+//   - newChannel: The SSH NewChannel to inspect.
+//
+// Returns:
+//   - bool: true if the channel type is "direct-tcpip", false otherwise.
 func isDirectTCPIPChannel(newChannel ssh.NewChannel) bool {
 	return newChannel.ChannelType() == "direct-tcpip"
 }
 
-// parseDirectTCPIPExtra parses the extra data for a direct-tcpip channel and returns the target host and port.
+// parseDirectTCPIPExtra extracts the target host and port from the extra data of a "direct-tcpip" SSH channel request.
+//
+// Parameters:
+//   - extra: The extra data payload from the SSH NewChannel request.
+//
+// Returns:
+//   - string: The target host requested for forwarding.
+//   - uint32: The target port requested for forwarding.
+//   - error:  An error if the extra data is malformed or incomplete.
 func parseDirectTCPIPExtra(extra []byte) (string, uint32, error) {
 	if len(extra) < 4 {
 		return "", 0, fmt.Errorf("invalid direct-tcpip request: insufficient data for host length")
@@ -104,7 +118,14 @@ func parseDirectTCPIPExtra(extra []byte) (string, uint32, error) {
 	return targetHost, targetPort, nil
 }
 
-// handlePortForwarding establishes a TCP connection to the target and relays data.
+// handlePortForwarding establishes a TCP connection to the specified target and relays data between the SSH channel and the target connection.
+//
+// Parameters:
+//   - targetHost: The destination host to connect to.
+//   - targetPort: The destination port to connect to.
+//   - ch:         The SSH channel to relay data from/to.
+//
+// This function ensures proper cleanup of the SSH channel and logs any connection errors.
 func handlePortForwarding(targetHost string, targetPort uint32, ch ssh.Channel) {
 	defer ch.Close()
 	addr := net.JoinHostPort(targetHost, strconv.Itoa(int(targetPort)))
