@@ -106,11 +106,21 @@ go build -o ssh-ify ./cmd/ssh-ify
 
 ## Usage
 
+
 ### Running the Server
 Start the SSH tunnel proxy server (listens on port 80 for TCP/WS, 443 for TLS):
 ```sh
 ./ssh-ify
 ```
+
+#### Run as a Background Process
+To keep the server running after closing the terminal:
+
+- **On Linux/macOS:**
+  ```sh
+  sudo nohup ./ssh-ify > output.log 2>&1 &
+  ```
+  This will start `ssh-ify` in the background and redirect all output to `output.log`.
 
 ### User Management
 Manage users via CLI commands:
