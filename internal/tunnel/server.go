@@ -2,18 +2,12 @@ package tunnel
 
 import (
 	"context"
-	"crypto/tls"
-	"fmt"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"sync"
 	"sync/atomic"
 	"syscall"
-	"time"
-
-	"ssh-ify/pkg/certgen"
 )
 
 // Server manages all incoming TCP and TLS connections for the ssh-ify tunnel proxy server.
@@ -60,7 +54,9 @@ func (s *Server) Remove(conn *Session) {
 	log.Println("Connection removed. Active:", newCount)
 }
 
-// Shutdown gracefully closes all active connections and waits for sessions to finish.
+// Shutdown gracefully terminates the server by closing all active sessions and
+// waiting for all ongoing operations to complete. It logs the shutdown process
+// and ensures that all resources are properly released before returning.
 func (s *Server) Shutdown() {
 	log.Println("Closing all active connections...")
 	s.conns.Range(func(key, value any) bool {
@@ -71,73 +67,6 @@ func (s *Server) Shutdown() {
 	})
 	s.wg.Wait()
 	log.Println("All sessions closed.")
-}
-
-// serveListener handles accepting connections and spawning sessions for a given listener.
-func (s *Server) serveListener(ln net.Listener, isTLS bool) {
-	defer ln.Close()
-	addr := ln.Addr().String()
-	if isTLS {
-		log.Printf("Listening (TLS) on %s", addr)
-	} else {
-		log.Printf("Listening on %s", addr)
-	}
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		default:
-			// Set deadline for TCPListener if possible
-			if tcpLn, ok := ln.(*net.TCPListener); ok {
-				tcpLn.SetDeadline(time.Now().Add(2 * time.Second))
-			}
-			conn, err := ln.Accept()
-			if err != nil {
-				if ne, ok := err.(net.Error); ok && ne.Timeout() {
-					continue
-				}
-				return
-			}
-			sess := &Session{client: conn, server: s, log: "Connection: " + conn.RemoteAddr().String()}
-			go sess.Process()
-		}
-	}
-}
-
-// ListenAndServe starts the TCP server and accepts incoming client connections.
-//
-// For each new connection, a Session is created and run in a separate goroutine.
-// The server periodically checks for shutdown signals and handles timeouts and errors gracefully.
-func (s *Server) ListenAndServe() {
-	addr := fmt.Sprintf("%s:%d", s.host, s.port)
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
-	}
-	s.serveListener(ln, false)
-}
-
-// ListenAndServeTLS starts the TLS server (typically on port 443) and accepts secure client connections.
-//
-// It ensures a valid certificate and key are present (generating them if needed), then listens for
-// incoming TLS connections. Each connection is handled by a Session in a separate goroutine.
-func (s *Server) ListenAndServeTLS() {
-	err := certgen.GenerateCert(s.tlsCertFile, s.tlsKeyFile)
-	if err != nil {
-		log.Fatalf("Failed to generate self-signed cert: %v", err)
-	}
-	cert, err := tls.LoadX509KeyPair(s.tlsCertFile, s.tlsKeyFile)
-	if err != nil {
-		log.Fatalf("Failed to load TLS certificate or key: %v", err)
-	}
-	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
-	addr := fmt.Sprintf("%s:%d", s.host, 443)
-	tcpLn, err := net.Listen("tcp", addr)
-	if err != nil {
-		log.Fatalf("Failed to listen on TCP for TLS: %v", err)
-	}
-	ln := tls.NewListener(tcpLn, tlsConfig)
-	s.serveListener(ln, true)
 }
 
 // NewServer constructs and returns a new Server with default configuration values.

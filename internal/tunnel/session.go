@@ -22,7 +22,6 @@ type Session struct {
 	client    net.Conn
 	target    net.Conn
 	server    *Server
-	log       string
 	sshConfig *ssh.ServerConfig
 }
 
@@ -32,11 +31,9 @@ type Session struct {
 func (s *Session) Close() {
 	if s.client != nil {
 		s.client.Close()
-		s.client = nil
 	}
 	if s.target != nil {
 		s.target.Close()
-		s.target = nil
 	}
 }
 
@@ -45,7 +42,8 @@ func (s *Session) Close() {
 // It parses the HTTP request, detects protocol upgrades (WebSocket/SSH), initializes the SSH server
 // configuration if needed, and establishes the tunnel. All major events and errors are logged for auditing.
 func (s *Session) Process() {
-	log.Println(s.log + " - New Connection opened")
+	sessionID := s.client.RemoteAddr().String()
+	log.Printf("[session %s] New connection opened", sessionID)
 
 	// Set a read deadline to avoid hanging connections.
 	s.client.SetReadDeadline(time.Now().Add(ClientReadTimeout))
@@ -54,19 +52,17 @@ func (s *Session) Process() {
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			// If client disconnects or read fails, log and close.
-			log.Println(s.log + " - error reading from client: " + err.Error())
-			log.Println(s.log + " - Closing connection due to read error.")
+			log.Printf("[session %s] Error reading from client: %v", sessionID, err)
+			log.Printf("[session %s] Closing connection due to read error.", sessionID)
 			return
 		}
 		builder.WriteString(line)
-		// End of HTTP headers detected.
 		if strings.HasSuffix(builder.String(), "\r\n\r\n") {
 			break
 		}
 		// Prevent header overflow attacks.
 		if builder.Len() > BufferSize {
-			log.Println(s.log + " - error: header too large")
+			log.Printf("[session %s] Header too large, closing connection", sessionID)
 			s.client.Write([]byte("HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n"))
 			return
 		}
@@ -75,50 +71,24 @@ func (s *Session) Process() {
 
 	reqLines := strings.Split(buf, "\r\n")
 	if len(reqLines) > 0 {
-		log.Println(s.log + " - Request: " + reqLines[0])
+		log.Printf("[session %s] Request received: %s", sessionID, reqLines[0])
 		hostHeader := HeaderValue(reqLines[1:], "Host")
 		if hostHeader != "" {
-			log.Println(s.log + " - Host header: " + hostHeader)
+			log.Printf("[session %s] Host header: %s", sessionID, hostHeader)
 		}
 		cfIP := HeaderValue(reqLines[1:], "CF-Connecting-IP")
 		if cfIP != "" {
-			log.Println(s.log + " - CF-Connecting-IP header: " + cfIP)
+			log.Printf("[session %s] CF-Connecting-IP header: %s", sessionID, cfIP)
 		}
 	}
 
 	// Remove read deadline for rest of session.
 	s.client.SetReadDeadline(time.Time{})
 
-	// Check for Upgrade header using HeaderValue utility.
-	upgradeHeader := HeaderValue(reqLines[1:], "Upgrade")
-	if upgradeHeader == "" {
-		log.Println(s.log + " - No Upgrade header found. Closing connection.")
-		s.Close()
-		return
+	// Handle WebSocket upgrade and tunnel setup using the new handler.
+	if WebSocketHandler(s, reqLines[1:]) {
+		s.Relay()
 	}
-
-	log.Println(s.log + " - WebSocket upgrade: using in-process SSH server.")
-	// net.Pipe creates a pair of connected endpoints for tunneling.
-	proxyEnd, sshEnd := net.Pipe()
-	// Lazily initialize SSH config if needed.
-	if s.sshConfig == nil {
-		var err error
-		s.sshConfig, err = ssh.NewConfig()
-		if err != nil {
-			log.Println(s.log + " - Error initializing SSH config: " + err.Error())
-			return
-		}
-	}
-	// Start SSH session in a goroutine for the tunnel endpoint.
-	go ssh.ServeConn(sshEnd, s.sshConfig, func() {
-		// Add connection to manager only after successful SSH authentication
-		s.server.Add(s)
-	})
-	s.target = proxyEnd
-	// Respond to client with protocol upgrade.
-	s.client.Write([]byte(WebSocketUpgradeResponse))
-	log.Println(s.log + " - Tunnel established.")
-	s.Relay()
 }
 
 // Relay copies data bidirectionally between the client and target connections using goroutines.
@@ -126,10 +96,11 @@ func (s *Session) Process() {
 // This method ensures proper cleanup after data transfer is complete, including closing connections
 // and removing the Session from the server's active connection map. It is safe to call multiple times.
 func (s *Session) Relay() {
+	sessionID := s.client.RemoteAddr().String()
 	defer func() {
 		s.Close()          // Clean up both connections
 		s.server.Remove(s) // Remove from active map
-		log.Println(s.log + " - Connection closed after data relay.")
+		log.Printf("[session %s] Connection closed.", sessionID)
 	}()
 
 	var wg sync.WaitGroup
@@ -139,8 +110,8 @@ func (s *Session) Relay() {
 	go func() {
 		defer wg.Done()
 		_, err := io.Copy(s.target, s.client)
-		if err != nil {
-			log.Println(s.log+" - Error copying client to target:", err)
+		if err != nil && !isIgnorableError(err) {
+			log.Printf("[session %s] Error copying client to target: %v", sessionID, err)
 		}
 		// Important: Closing target to unblock other io.Copy
 		s.target.Close()
@@ -150,12 +121,24 @@ func (s *Session) Relay() {
 	go func() {
 		defer wg.Done()
 		_, err := io.Copy(s.client, s.target)
-		if err != nil {
-			log.Println(s.log+" - Error copying target to client:", err)
+		if err != nil && !isIgnorableError(err) {
+			log.Printf("[session %s] Error copying target to client: %v", sessionID, err)
 		}
 		// Important: Closing client to unblock other io.Copy
 		s.client.Close()
 	}()
 
 	wg.Wait()
+}
+
+// isIgnorableError returns true if the error is EOF or a known benign network error.
+func isIgnorableError(err error) bool {
+	if err == io.EOF {
+		return true
+	}
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "use of closed network connection")
 }
