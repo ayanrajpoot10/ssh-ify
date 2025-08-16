@@ -25,6 +25,10 @@ var (
 //
 // Returns:
 //   - error: If initialization fails (should not occur in current implementation).
+//
+// Example:
+//
+//	err := ssh.InitializeAuth("")
 func InitializeAuth(dbPath string) error {
 	userDB = usermgmt.NewUserDB(dbPath)
 	return nil
@@ -50,6 +54,10 @@ func GetUserDB() *usermgmt.UserDB {
 // Returns:
 //   - *ssh.Permissions: Always nil (no custom permissions used).
 //   - error: If authentication fails or the user database is not initialized.
+//
+// Example:
+//
+//	config.PasswordCallback = ssh.PasswordAuth
 func PasswordAuth(c ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 	if userDB == nil {
 		log.Printf("PasswordAuth: user database not initialized")

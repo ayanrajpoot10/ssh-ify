@@ -18,6 +18,11 @@ import (
 // Returns:
 //   - *rsa.PrivateKey: The generated RSA private key.
 //   - error: If key generation or validation fails.
+//
+// Example:
+//
+//	priv, err := ssh.NewRSAPrivateKey(4096)
+//	if err != nil { ... }
 func NewRSAPrivateKey(bitSize int) (*rsa.PrivateKey, error) {
 	// Generate RSA private key of given bit size.
 	privateKey, err := rsa.GenerateKey(rand.Reader, bitSize)
@@ -41,6 +46,10 @@ func NewRSAPrivateKey(bitSize int) (*rsa.PrivateKey, error) {
 //
 // Returns:
 //   - []byte: PEM-encoded private key data.
+//
+// Example:
+//
+//	pemBytes := ssh.RSAPrivateKeyPEM(priv)
 func RSAPrivateKeyPEM(privateKey *rsa.PrivateKey) []byte {
 	// Marshal RSA key to PKCS#1 DER format.
 	privDER := x509.MarshalPKCS1PrivateKey(privateKey)

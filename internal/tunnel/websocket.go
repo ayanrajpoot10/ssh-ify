@@ -9,7 +9,17 @@ import (
 // WebSocketHandler upgrades an incoming session to a WebSocket connection and establishes
 // a tunnel using an in-process SSH server. It validates the Upgrade header, initializes
 // the SSH configuration if necessary, and sets up a bidirectional proxy between the client
-// and the SSH server. Returns true if the upgrade and tunnel setup succeed, or false on failure.
+// and the SSH server.
+//
+// Returns true if the upgrade and tunnel setup succeed, or false on failure.
+//
+// Parameters:
+//   - s:        The Session to upgrade.
+//   - reqLines: The HTTP request lines from the client.
+//
+// Example:
+//
+//	ok := tunnel.WebSocketHandler(session, reqLines)
 func WebSocketHandler(s *Session, reqLines []string) bool {
 	upgradeHeader := HeaderValue(reqLines, "Upgrade")
 

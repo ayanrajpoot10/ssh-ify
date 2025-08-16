@@ -6,27 +6,24 @@ import (
 )
 
 // BufferSize defines the buffer size (in bytes) for reading client requests.
-//
+const BufferSize = 4096 * 4
+
 // ClientReadTimeout specifies the maximum duration to wait for client data before timing out.
-//
+const ClientReadTimeout = 60 * time.Second
+
 // WebSocketUpgradeResponse is the HTTP response sent to clients to acknowledge a successful
 // WebSocket protocol upgrade. This is used to establish SSH-over-WebSocket tunnels.
-const (
-	BufferSize               = 4096 * 4
-	ClientReadTimeout        = 60 * time.Second
-	WebSocketUpgradeResponse = "HTTP/1.1 101 Switching Protocols\r\n" +
-		"Upgrade: websocket\r\n" +
-		"Connection: Upgrade\r\n" +
-		"Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n" +
-		"Sec-WebSocket-Version: 13\r\n\r\n"
-)
+const WebSocketUpgradeResponse = "HTTP/1.1 101 Switching Protocols\r\n" +
+	"Upgrade: websocket\r\n" +
+	"Connection: Upgrade\r\n" +
+	"Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n" +
+	"Sec-WebSocket-Version: 13\r\n\r\n"
 
 // DefaultListenAddress is the default address the proxy server listens on (all interfaces).
+var DefaultListenAddress string = "0.0.0.0"
+
 // DefaultListenPort is the default port the proxy server listens on (HTTP/WS).
-var (
-	DefaultListenAddress string = "0.0.0.0"
-	DefaultListenPort    int    = 80
-)
+var DefaultListenPort int = 80
 
 // HeaderValue extracts the value of a specific HTTP header from a slice of header lines.
 //
@@ -39,6 +36,10 @@ var (
 //
 // Returns:
 //   - string: The value of the header, or "" if not found.
+//
+// Example:
+//
+//	host := tunnel.HeaderValue(headers, "Host")
 func HeaderValue(headers []string, headerName string) string {
 	headerNameLower := strings.ToLower(headerName)
 	for _, line := range headers {

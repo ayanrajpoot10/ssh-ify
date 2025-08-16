@@ -8,9 +8,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// ServerConfig is a type alias for ssh.ServerConfig, re-exported so tunnel/session.go
-// can use it without directly importing golang.org/x/crypto/ssh. This improves modularity
-// and encapsulation of SSH server configuration details.
+// ServerConfig is a type alias for ssh.ServerConfig.
+//
+// This alias allows other internal packages (such as tunnel/session.go) to use the SSH server configuration
+// without directly importing golang.org/x/crypto/ssh, improving modularity and encapsulation of SSH server details.
 type ServerConfig = ssh.ServerConfig
 
 // NewConfig initializes and returns a new SSH server configuration for ssh-ify.
@@ -22,6 +23,12 @@ type ServerConfig = ssh.ServerConfig
 // Returns:
 //   - *ssh.ServerConfig: The configured SSH server settings.
 //   - error: If host key generation, loading, or parsing fails, or if authentication cannot be initialized.
+//
+// Example:
+//
+//	config, err := ssh.NewConfig()
+//	if err != nil { ... }
+//	// Use config to accept SSH connections
 func NewConfig() (*ssh.ServerConfig, error) {
 	// Initialize the authentication system if not already done
 	if GetUserDB() == nil {
@@ -73,7 +80,11 @@ func NewConfig() (*ssh.ServerConfig, error) {
 // Parameters:
 //   - conn: The underlying network connection to upgrade to SSH.
 //   - config: The SSH server configuration (typically from NewConfig).
-//   - onAuthSuccess: Optional callback invoked after successful authentication.
+//   - onAuthSuccess: Optional callback invoked after successful authentication (may be nil).
+//
+// Example:
+//
+//	ssh.HandleSSHConnection(conn, config, func() { log.Println("Authenticated!") })
 func HandleSSHConnection(conn net.Conn, config *ssh.ServerConfig, onAuthSuccess func()) {
 	// Accept the incoming SSH connection and extract channels/requests.
 	sshConn, chans, reqs, err := ssh.NewServerConn(conn, config)

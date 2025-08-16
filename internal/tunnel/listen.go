@@ -36,7 +36,12 @@ func serveListener(s *Server, ln net.Listener) {
 }
 
 // ListenAndServe starts the tunnel server in plain TCP mode and begins accepting incoming client connections.
+//
 // It listens on the configured host and port, and spawns a new session for each connection.
+//
+// Example:
+//
+//	server.ListenAndServe()
 func (s *Server) ListenAndServe() {
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 	ln, err := net.Listen("tcp", addr)
@@ -47,8 +52,13 @@ func (s *Server) ListenAndServe() {
 }
 
 // ListenAndServeTLS starts the tunnel server in TLS mode and begins accepting secure client connections.
+//
 // It loads the configured TLS certificate and key, listens on the standard HTTPS port (443),
 // and spawns a new session for each secure connection.
+//
+// Example:
+//
+//	server.ListenAndServeTLS()
 func (s *Server) ListenAndServeTLS() {
 	cert, err := tls.LoadX509KeyPair(s.tlsCertFile, s.tlsKeyFile)
 	if err != nil {

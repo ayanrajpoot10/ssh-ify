@@ -12,9 +12,19 @@ import (
 
 // Server manages all incoming TCP and TLS connections for the ssh-ify tunnel proxy server.
 //
-// It tracks active client connections and ensures thread-safe operations using sync
-// primitives. The server supports both plain TCP and TLS (HTTPS/WebSocket) connections
-// and provides methods for graceful startup and shutdown.
+// Server tracks active client connections and ensures thread-safe operations using sync primitives.
+// It supports both plain TCP and TLS (HTTPS/WebSocket) connections and provides methods for graceful startup and shutdown.
+//
+// Fields:
+//   - host:        Listen address
+//   - port:        Listen port
+//   - ctx:         Context for cancellation
+//   - cancel:      Cancel function for context
+//   - conns:       Map of active sessions (concurrency safe)
+//   - activeCount: Atomic counter for active connections
+//   - tlsCertFile: Path to TLS certificate file
+//   - tlsKeyFile:  Path to TLS key file
+//   - wg:          WaitGroup to track active sessions
 type Server struct {
 	host        string
 	port        int
@@ -31,6 +41,10 @@ type Server struct {
 //
 // This method is concurrency-safe and increments the active connection count.
 // It is typically called after successful authentication or tunnel establishment.
+//
+// Example:
+//
+//	server.Add(session)
 func (s *Server) Add(conn *Session) {
 	select {
 	case <-s.ctx.Done():
@@ -47,6 +61,10 @@ func (s *Server) Add(conn *Session) {
 //
 // This method is concurrency-safe and decrements the active connection count.
 // It should be called when a connection is closed or cleaned up.
+//
+// Example:
+//
+//	server.Remove(session)
 func (s *Server) Remove(conn *Session) {
 	s.conns.Delete(conn)
 	s.wg.Done()
@@ -57,6 +75,10 @@ func (s *Server) Remove(conn *Session) {
 // Shutdown gracefully terminates the server by closing all active sessions and
 // waiting for all ongoing operations to complete. It logs the shutdown process
 // and ensures that all resources are properly released before returning.
+//
+// Example:
+//
+//	server.Shutdown()
 func (s *Server) Shutdown() {
 	log.Println("Closing all active connections...")
 	s.conns.Range(func(key, value any) bool {
@@ -72,6 +94,10 @@ func (s *Server) Shutdown() {
 // NewServer constructs and returns a new Server with default configuration values.
 //
 // The returned server is ready to accept connections on the default address and port.
+//
+// Example:
+//
+//	server := tunnel.NewServer()
 func NewServer() *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
@@ -90,6 +116,10 @@ func NewServer() *Server {
 // This function sets up signal handling for graceful shutdown and runs both the TCP and TLS
 // servers in separate goroutines. It blocks until a shutdown signal is received, then stops
 // the server and logs the shutdown event.
+//
+// Example:
+//
+//	tunnel.StartServer()
 func StartServer() {
 	s := NewServer()
 

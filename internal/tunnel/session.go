@@ -14,10 +14,17 @@ import (
 
 // Session manages a single client connection for the ssh-ify tunnel proxy server.
 //
-// It encapsulates the state and logic for handling a client session, including
+// Session encapsulates the state and logic for handling a client session, including
 // protocol upgrades (WebSocket/SSH), bidirectional data relay, and connection cleanup.
 // Each Session is associated with a parent Server and maintains references to both
 // the client and target connections.
+//
+// Fields:
+//   - client:    The client network connection
+//   - target:    The target network connection (after upgrade)
+//   - server:    The parent Server
+//   - sshConfig: SSH server configuration for this session
+//   - sessionID: Unique identifier for the session
 type Session struct {
 	client    net.Conn
 	target    net.Conn
@@ -29,6 +36,10 @@ type Session struct {
 // Close safely closes both the client and target connections managed by this Session.
 //
 // This method is idempotent and ensures that resources are released only once.
+//
+// Example:
+//
+//	session.Close()
 func (s *Session) Close() {
 	if s.client != nil {
 		s.client.Close()
@@ -42,6 +53,10 @@ func (s *Session) Close() {
 //
 // It parses the HTTP request, detects protocol upgrades (WebSocket/SSH), initializes the SSH server
 // configuration if needed, and establishes the tunnel. All major events and errors are logged for auditing.
+//
+// Example:
+//
+//	session.Process()
 func (s *Session) Process() {
 	log.Printf("[session %s] New connection opened", s.sessionID)
 
@@ -95,6 +110,10 @@ func (s *Session) Process() {
 //
 // This method ensures proper cleanup after data transfer is complete, including closing connections
 // and removing the Session from the server's active connection map. It is safe to call multiple times.
+//
+// Example:
+//
+//	session.Relay()
 func (s *Session) Relay() {
 	defer func() {
 		s.Close()          // Clean up both connections
@@ -131,6 +150,8 @@ func (s *Session) Relay() {
 }
 
 // isIgnorableError returns true if the error is EOF or a known benign network error.
+//
+// Used internally to suppress logging for expected connection closure errors.
 func isIgnorableError(err error) bool {
 	if err == io.EOF {
 		return true

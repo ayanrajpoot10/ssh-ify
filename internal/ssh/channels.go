@@ -22,6 +22,10 @@ import (
 //   - ch: The SSH channel to relay data from/to.
 //   - targetConn: The TCP connection to the target host.
 //   - addr: The address of the target host (for logging).
+//
+// Example:
+//
+//	ForwardData(sshChannel, tcpConn, "example.com:80")
 func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -54,6 +58,10 @@ func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 //
 // Parameters:
 //   - chans: Channel of incoming SSH NewChannel requests.
+//
+// Example:
+//
+//	HandleSSHChannels(newChannelChan)
 func HandleSSHChannels(chans <-chan ssh.NewChannel) {
 	for newChannel := range chans {
 		// Step 1: Validate channel type
