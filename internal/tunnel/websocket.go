@@ -30,7 +30,7 @@ func WebSocketHandler(s *Session, reqLines []string) bool {
 			return false
 		}
 	}
-	go ssh.ServeConn(sshEnd, s.sshConfig, func() {
+	go ssh.HandleSSHConnection(sshEnd, s.sshConfig, func() {
 		s.server.Add(s)
 	})
 	s.target = proxyEnd

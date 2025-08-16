@@ -64,7 +64,7 @@ func NewConfig() (*ssh.ServerConfig, error) {
 	return config, nil
 }
 
-// ServeConn handles an incoming SSH connection for the ssh-ify server.
+// HandleSSHConnection handles an incoming SSH connection for the ssh-ify server.
 //
 // It performs the SSH handshake, processes port forwarding channels, and ensures
 // proper cleanup of resources. The optional onAuthSuccess callback is invoked after
@@ -74,7 +74,7 @@ func NewConfig() (*ssh.ServerConfig, error) {
 //   - conn: The underlying network connection to upgrade to SSH.
 //   - config: The SSH server configuration (typically from NewConfig).
 //   - onAuthSuccess: Optional callback invoked after successful authentication.
-func ServeConn(conn net.Conn, config *ssh.ServerConfig, onAuthSuccess func()) {
+func HandleSSHConnection(conn net.Conn, config *ssh.ServerConfig, onAuthSuccess func()) {
 	// Accept the incoming SSH connection and extract channels/requests.
 	sshConn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
