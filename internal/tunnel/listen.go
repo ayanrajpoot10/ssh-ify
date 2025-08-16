@@ -29,7 +29,7 @@ func serveListener(s *Server, ln net.Listener) {
 				}
 				return
 			}
-			sess := &Session{client: conn, server: s}
+			sess := &Session{client: conn, server: s, sessionID: conn.RemoteAddr().String()}
 			go sess.Process()
 		}
 	}

@@ -45,7 +45,7 @@ func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 	ch.Close()
 }
 
-// HandleSSHForwardChannels processes incoming SSH channels for port forwarding (direct-tcpip).
+// HandleSSHChannels processes incoming SSH channels for port forwarding (direct-tcpip).
 //
 // It accepts only "direct-tcpip" channel types, parses the target address and port,
 // and establishes a TCP connection to the requested destination. Each accepted channel
@@ -54,7 +54,7 @@ func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 //
 // Parameters:
 //   - chans: Channel of incoming SSH NewChannel requests.
-func HandleSSHForwardChannels(chans <-chan ssh.NewChannel) {
+func HandleSSHChannels(chans <-chan ssh.NewChannel) {
 	for newChannel := range chans {
 		// Step 1: Validate channel type
 		if !isDirectTCPIPChannel(newChannel) {
