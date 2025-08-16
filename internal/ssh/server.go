@@ -91,7 +91,7 @@ func ServeConn(conn net.Conn, config *ssh.ServerConfig, onAuthSuccess func()) {
 	// Discard global requests (not used).
 	go ssh.DiscardRequests(reqs)
 	// Handle port forwarding channels.
-	ServePortForward(chans)
+	HandleSSHForwardChannels(chans)
 	// Close SSH connection after handling channels.
 	sshConn.Close()
 }

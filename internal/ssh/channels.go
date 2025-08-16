@@ -45,7 +45,7 @@ func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 	ch.Close()
 }
 
-// ServePortForward processes incoming SSH channels for port forwarding (direct-tcpip).
+// HandleSSHForwardChannels processes incoming SSH channels for port forwarding (direct-tcpip).
 //
 // It accepts only "direct-tcpip" channel types, parses the target address and port,
 // and establishes a TCP connection to the requested destination. Each accepted channel
@@ -54,60 +54,64 @@ func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 //
 // Parameters:
 //   - chans: Channel of incoming SSH NewChannel requests.
-func ServePortForward(chans <-chan ssh.NewChannel) {
+func HandleSSHForwardChannels(chans <-chan ssh.NewChannel) {
 	for newChannel := range chans {
-		var targetHost string
-		var targetPort uint32
-		var err error
-
-		// Determine channel type and parse target info.
-		if newChannel.ChannelType() == "direct-tcpip" {
-			extra := newChannel.ExtraData()
-			// Inline DirectTCPIP logic
-			if len(extra) < 4 {
-				err = fmt.Errorf("invalid direct-tcpip request: insufficient data for host length")
-				log.Printf("HandleChannels: %v", err)
-				newChannel.Reject(ssh.Prohibited, err.Error())
-				continue
-			}
-			l := int(binary.BigEndian.Uint32(extra[:4]))
-			if len(extra) < 4+l+4 {
-				err = fmt.Errorf("invalid direct-tcpip request: insufficient data for host and port")
-				log.Printf("HandleChannels: %v", err)
-				newChannel.Reject(ssh.Prohibited, err.Error())
-				continue
-			}
-			targetHost = string(extra[4 : 4+l])
-			portOffset := 4 + l
-			targetPort = binary.BigEndian.Uint32(extra[portOffset : portOffset+4])
-		} else {
-			// Unknown channel type, reject.
+		// Step 1: Validate channel type
+		if !isDirectTCPIPChannel(newChannel) {
 			log.Printf("HandleChannels: Unknown channel type: %s", newChannel.ChannelType())
 			newChannel.Reject(ssh.UnknownChannelType, "only port forwarding allowed")
 			continue
 		}
 
-		// Accept the channel for port forwarding.
+		// Step 2: Parse direct-tcpip extra data
+		targetHost, targetPort, err := parseDirectTCPIPExtra(newChannel.ExtraData())
+		if err != nil {
+			log.Printf("HandleChannels: %v", err)
+			newChannel.Reject(ssh.Prohibited, err.Error())
+			continue
+		}
+
+		// Step 3: Accept the channel
 		ch, reqs, err := newChannel.Accept()
 		if err != nil {
 			log.Printf("HandleChannels: Error accepting channel: %v", err)
 			continue
 		}
-		// Discard any requests on the channel (not used for forwarding).
 		go ssh.DiscardRequests(reqs)
 
-		// Handle forwarding in a separate goroutine for concurrency.
-		go func(targetHost string, targetPort uint32, ch ssh.Channel) {
-			defer ch.Close()
-			addr := net.JoinHostPort(targetHost, strconv.Itoa(int(targetPort)))
-			// Connect to the requested target address.
-			targetConn, err := net.Dial("tcp", addr)
-			if err != nil {
-				log.Printf("HandleChannels: Error connecting to target %s: %v", addr, err)
-				return
-			}
-			// Relay data between SSH channel and target connection.
-			ForwardData(ch, targetConn, addr)
-		}(targetHost, targetPort, ch)
+		// Step 4: Handle forwarding in a goroutine
+		go handlePortForwarding(targetHost, targetPort, ch)
 	}
+}
+
+// isDirectTCPIPChannel checks if the channel type is "direct-tcpip".
+func isDirectTCPIPChannel(newChannel ssh.NewChannel) bool {
+	return newChannel.ChannelType() == "direct-tcpip"
+}
+
+// parseDirectTCPIPExtra parses the extra data for a direct-tcpip channel and returns the target host and port.
+func parseDirectTCPIPExtra(extra []byte) (string, uint32, error) {
+	if len(extra) < 4 {
+		return "", 0, fmt.Errorf("invalid direct-tcpip request: insufficient data for host length")
+	}
+	l := int(binary.BigEndian.Uint32(extra[:4]))
+	if len(extra) < 4+l+4 {
+		return "", 0, fmt.Errorf("invalid direct-tcpip request: insufficient data for host and port")
+	}
+	targetHost := string(extra[4 : 4+l])
+	portOffset := 4 + l
+	targetPort := binary.BigEndian.Uint32(extra[portOffset : portOffset+4])
+	return targetHost, targetPort, nil
+}
+
+// handlePortForwarding establishes a TCP connection to the target and relays data.
+func handlePortForwarding(targetHost string, targetPort uint32, ch ssh.Channel) {
+	defer ch.Close()
+	addr := net.JoinHostPort(targetHost, strconv.Itoa(int(targetPort)))
+	targetConn, err := net.Dial("tcp", addr)
+	if err != nil {
+		log.Printf("HandleChannels: Error connecting to target %s: %v", addr, err)
+		return
+	}
+	ForwardData(ch, targetConn, addr)
 }
