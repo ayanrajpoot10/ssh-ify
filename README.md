@@ -86,7 +86,7 @@ A modern SSH tunnel proxy server with user management, password authentication, 
 - **WebSocket Support:**
   - SSH protocol can be tunneled over WebSocket, allowing browser-based or cloud-native SSH clients to connect.
 
-> **Note:** Accounts created with ssh-ify work seamlessly with all SSH-over-WebSocket clients, including popular tools like HTTP Injector, DarkTunnel, and similar apps. Simply use your ssh-ify username and password in your preferred client, set the WebSocket host/port, and connect securely through the proxy.
+> **Note:** Accounts created with ssh-ify work seamlessly with all SSH-over-WebSocket clients, including popular tools like HTTP Injector, DarkTunnel, and [Tunn](https://github.com/ayanrajpoot10/tunn) (my own SSH WebSocket client), as well as similar apps. Simply use your ssh-ify username and password in your preferred client, set the WebSocket host/port, and connect securely through the proxy.
 
 ---
 
