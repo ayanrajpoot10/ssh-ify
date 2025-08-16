@@ -28,14 +28,14 @@ func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 	go func() {
 		defer wg.Done()
 		_, err := io.Copy(targetConn, ch)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			log.Printf("forwardChannel: Error copying SSH->%s: %v", addr, err)
 		}
 	}()
 	go func() {
 		defer wg.Done()
 		_, err := io.Copy(ch, targetConn)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			log.Printf("forwardChannel: Error copying %s->SSH: %v", addr, err)
 		}
 	}()
