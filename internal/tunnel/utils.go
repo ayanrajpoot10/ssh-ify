@@ -11,6 +11,9 @@ const BufferSize = 4096 * 4
 // ClientReadTimeout specifies the maximum duration to wait for client data before timing out.
 const ClientReadTimeout = 60 * time.Second
 
+// Note: For I/O operations, buffered copying with reusable buffers is implemented in buffers.go
+// This provides better performance and reduced memory allocations compared to standard io.Copy.
+
 // WebSocketUpgradeResponse is the HTTP response sent to clients to acknowledge a successful
 // WebSocket protocol upgrade. This is used to establish SSH-over-WebSocket tunnels.
 const WebSocketUpgradeResponse = "HTTP/1.1 101 Switching Protocols\r\n" +

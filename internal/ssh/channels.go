@@ -15,8 +15,8 @@ import (
 // ForwardData relays data bidirectionally between an SSH channel and a target TCP connection.
 //
 // This function launches goroutines for each direction (SSH→target and target→SSH),
-// ensuring efficient, concurrent data transfer. It waits for both directions to complete
-// and then closes both connections to free resources.
+// ensuring efficient, concurrent data transfer with reusable buffers. It waits for both
+// directions to complete and then closes both connections to free resources.
 //
 // Parameters:
 //   - ch: The SSH channel to relay data from/to.
@@ -31,14 +31,14 @@ func ForwardData(ch ssh.Channel, targetConn net.Conn, addr string) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_, err := io.Copy(targetConn, ch)
+		_, err := CopyWithSSHBuffer(targetConn, ch)
 		if err != nil && err != io.EOF {
 			log.Printf("forwardChannel: Error copying SSH->%s: %v", addr, err)
 		}
 	}()
 	go func() {
 		defer wg.Done()
-		_, err := io.Copy(ch, targetConn)
+		_, err := CopyWithSSHBuffer(ch, targetConn)
 		if err != nil && err != io.EOF {
 			log.Printf("forwardChannel: Error copying %s->SSH: %v", addr, err)
 		}

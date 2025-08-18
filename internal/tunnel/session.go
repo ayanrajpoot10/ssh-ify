@@ -127,7 +127,7 @@ func (s *Session) Relay() {
 	// Copy client → target
 	go func() {
 		defer wg.Done()
-		_, err := io.Copy(s.target, s.client)
+		_, err := CopyWithBuffer(s.target, s.client)
 		if err != nil && !isIgnorableError(err) {
 			log.Printf("[session %s] Error copying client to target: %v", s.sessionID, err)
 		}
@@ -138,7 +138,7 @@ func (s *Session) Relay() {
 	// Copy target → client
 	go func() {
 		defer wg.Done()
-		_, err := io.Copy(s.client, s.target)
+		_, err := CopyWithBuffer(s.client, s.target)
 		if err != nil && !isIgnorableError(err) {
 			log.Printf("[session %s] Error copying target to client: %v", s.sessionID, err)
 		}
