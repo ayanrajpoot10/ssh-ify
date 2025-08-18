@@ -6,6 +6,8 @@ import (
 	"log"
 	"net"
 	"time"
+
+	"ssh-ify/pkg/certgen"
 )
 
 // serveListener continuously accepts incoming connections on the provided listener and
@@ -64,6 +66,11 @@ func (s *Server) listenTCP() {
 
 // listenTLS starts the TLS listener and handles incoming secure connections.
 func (s *Server) listenTLS() {
+	// Auto-generate certificates if they don't exist
+	if err := certgen.GenerateCert(s.tlsCertFile, s.tlsKeyFile); err != nil {
+		log.Fatalf("Failed to generate TLS certificates: %v", err)
+	}
+
 	cert, err := tls.LoadX509KeyPair(s.tlsCertFile, s.tlsKeyFile)
 	if err != nil {
 		log.Fatalf("Failed to load TLS certificate or key: %v", err)
