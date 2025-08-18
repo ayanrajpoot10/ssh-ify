@@ -9,7 +9,7 @@
 //
 // Usage:
 //  1. Initialize authentication with InitializeAuth (typically at startup)
-//  2. Create a server config with NewConfig
+//  2. Create a server config with NewConfig (see config.go)
 //  3. Accept incoming connections and handle them with HandleSSHConnection
 //  4. Use HandleSSHChannels to process port forwarding channels
 //
