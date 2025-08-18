@@ -49,15 +49,15 @@ func (s *Session) Close() {
 	}
 }
 
-// Process handles the lifecycle of a client connection from initial request to tunnel establishment.
+// Handle manages the lifecycle of a client connection from initial request to tunnel establishment.
 //
 // It parses the HTTP request, detects protocol upgrades (WebSocket/SSH), initializes the SSH server
 // configuration if needed, and establishes the tunnel. All major events and errors are logged for auditing.
 //
 // Example:
 //
-//	session.Process()
-func (s *Session) Process() {
+//	sess.Handle()
+func (s *Session) Handle() {
 	log.Printf("[session %s] New connection opened", s.sessionID)
 
 	// Set a read deadline to avoid hanging connections.
@@ -113,7 +113,7 @@ func (s *Session) Process() {
 //
 // Example:
 //
-//	session.Relay()
+//	sess.Relay()
 func (s *Session) Relay() {
 	defer func() {
 		s.Close()          // Clean up both connections
