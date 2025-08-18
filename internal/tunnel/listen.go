@@ -35,41 +35,49 @@ func serveListener(s *Server, ln net.Listener) {
 	}
 }
 
-// ListenAndServe starts the tunnel server in plain TCP mode and begins accepting incoming client connections.
+// ListenAndServe starts both TCP and TLS tunnel servers simultaneously in separate goroutines.
 //
-// It listens on the configured host and port, and spawns a new session for each connection.
+// It starts a plain TCP listener on the configured host and port, and a TLS listener on port 443.
+// Both listeners run concurrently and handle incoming connections independently.
 //
 // Example:
 //
 //	server.ListenAndServe()
 func (s *Server) ListenAndServe() {
-	addr := fmt.Sprintf("%s:%d", s.host, s.port)
+	// Start TCP listener in a goroutine
+	go s.listenTCP()
+
+	// Start TLS listener in a goroutine
+	go s.listenTLS()
+}
+
+// listenTCP starts the plain TCP listener and handles incoming connections.
+func (s *Server) listenTCP() {
+	addr := fmt.Sprintf("%s:%d", s.host, s.tcpPort)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		log.Fatalf("Failed to listen on TCP %s: %v", addr, err)
 	}
+	log.Printf("TCP server listening on %s", addr)
 	serveListener(s, ln)
 }
 
-// ListenAndServeTLS starts the tunnel server in TLS mode and begins accepting secure client connections.
-//
-// It loads the configured TLS certificate and key, listens on the standard HTTPS port (443),
-// and spawns a new session for each secure connection.
-//
-// Example:
-//
-//	server.ListenAndServeTLS()
-func (s *Server) ListenAndServeTLS() {
+// listenTLS starts the TLS listener and handles incoming secure connections.
+func (s *Server) listenTLS() {
 	cert, err := tls.LoadX509KeyPair(s.tlsCertFile, s.tlsKeyFile)
 	if err != nil {
 		log.Fatalf("Failed to load TLS certificate or key: %v", err)
 	}
+
 	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
-	addr := fmt.Sprintf("%s:%d", s.host, 443)
+	addr := fmt.Sprintf("%s:%d", s.host, s.tlsPort)
+
 	tcpLn, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("Failed to listen on TCP for TLS: %v", err)
+		log.Fatalf("Failed to listen on TLS %s: %v", addr, err)
 	}
+
 	ln := tls.NewListener(tcpLn, tlsConfig)
+	log.Printf("TLS server listening on %s", addr)
 	serveListener(s, ln)
 }

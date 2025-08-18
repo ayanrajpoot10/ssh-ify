@@ -17,7 +17,8 @@ import (
 //
 // Fields:
 //   - host:        Listen address
-//   - port:        Listen port
+//   - tcpPort:     Listen port for plain TCP/WS
+//   - tlsPort:     Listen port for TLS/HTTPS
 //   - ctx:         Context for cancellation
 //   - cancel:      Cancel function for context
 //   - conns:       Map of active sessions (concurrency safe)
@@ -27,7 +28,8 @@ import (
 //   - wg:          WaitGroup to track active sessions
 type Server struct {
 	host        string
-	port        int
+	tcpPort     int
+	tlsPort     int
 	ctx         context.Context
 	cancel      context.CancelFunc
 	conns       sync.Map       // map[*Session]struct{} for concurrency safety
@@ -102,7 +104,8 @@ func NewServer() *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
 		host:        DefaultListenAddress,
-		port:        DefaultListenPort,
+		tcpPort:     DefaultListenPort,
+		tlsPort:     DefaultListenTLSPort,
 		ctx:         ctx,
 		cancel:      cancel,
 		conns:       sync.Map{},
@@ -113,9 +116,9 @@ func NewServer() *Server {
 
 // StartServer launches the tunnel proxy server and manages its lifecycle.
 //
-// This function sets up signal handling for graceful shutdown and runs both the TCP and TLS
-// servers in separate goroutines. It blocks until a shutdown signal is received, then stops
-// the server and logs the shutdown event.
+// This function sets up signal handling for graceful shutdown and starts both TCP and TLS
+// servers simultaneously in separate goroutines. It blocks until a shutdown signal is received,
+// then stops the server and logs the shutdown event.
 //
 // Example:
 //
@@ -127,10 +130,8 @@ func StartServer() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	// Start the TCP server in a separate goroutine.
-	go s.ListenAndServe()
-	// Start the TLS server in a separate goroutine.
-	go s.ListenAndServeTLS()
+	// Start both TCP and TLS servers simultaneously in separate goroutines.
+	s.ListenAndServe()
 
 	// Block until a shutdown signal is received (e.g., Ctrl+C or SIGTERM).
 	<-c

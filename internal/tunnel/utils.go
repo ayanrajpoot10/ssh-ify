@@ -25,6 +25,9 @@ var DefaultListenAddress string = "0.0.0.0"
 // DefaultListenPort is the default port the proxy server listens on (HTTP/WS).
 var DefaultListenPort int = 80
 
+// DefaultListenTLSPort is the default TLS listen port (HTTPS).
+var DefaultListenTLSPort int = 443
+
 // HeaderValue extracts the value of a specific HTTP header from a slice of header lines.
 //
 // It performs a case-insensitive search for the header name and returns the value if found, or an empty string otherwise.
