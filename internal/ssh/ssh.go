@@ -30,7 +30,7 @@ import (
 	"strconv"
 	"sync"
 
-	"ssh-ify/internal/usermgmt"
+	"github.com/ayanrajpoot10/ssh-ify/internal/usermgmt"
 
 	"golang.org/x/crypto/ssh"
 )

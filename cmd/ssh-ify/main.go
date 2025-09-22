@@ -3,24 +3,14 @@
 // This package provides the command-line interface (CLI) for running the SSH tunnel proxy server
 // and managing user accounts. It supports both server startup and user management commands,
 // making it suitable for deployment, automation, and administration.
-//
-// Usage:
-//
-//	ssh-ify                 # Start the server
-//	ssh-ify user-mgmt       # Launch interactive user management shell
-//	ssh-ify add-user ...    # Add a user
-//	ssh-ify remove-user ... # Remove a user
-//	ssh-ify help            # Show help
-//
-// See the README for full details.
 package main
 
 import (
 	"fmt"
 	"os"
 
-	"ssh-ify/internal/tunnel"
-	"ssh-ify/internal/usermgmt"
+	"github.com/ayanrajpoot10/ssh-ify/internal/tunnel"
+	"github.com/ayanrajpoot10/ssh-ify/internal/usermgmt"
 )
 
 // main is the application entry point for ssh-ify.

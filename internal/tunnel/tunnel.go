@@ -35,8 +35,8 @@ import (
 	"syscall"
 	"time"
 
-	"ssh-ify/internal/ssh"
-	"ssh-ify/pkg/certgen"
+	"github.com/ayanrajpoot10/ssh-ify/internal/ssh"
+	"github.com/ayanrajpoot10/ssh-ify/pkg/certgen"
 )
 
 // Constants
