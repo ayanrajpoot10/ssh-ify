@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ayanrajpoot10/ssh-ify/internal/config"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -30,7 +31,14 @@ type UserDB struct {
 // NewUserDB creates a new user database instance.
 func NewUserDB(dbPath string) *UserDB {
 	if dbPath == "" {
-		dbPath = "users.json"
+		// Use config directory by default
+		configPath, err := config.GetUserDBPath()
+		if err != nil {
+			// Fallback to current directory if config dir fails
+			dbPath = "users.json"
+		} else {
+			dbPath = configPath
+		}
 	}
 
 	db := &UserDB{
@@ -99,10 +107,6 @@ func (db *UserDB) AddUser(username, password string) error {
 		delete(db.users, username)
 		return fmt.Errorf("failed to save user database: %v", err)
 	}
-	// Reload from file
-	if err := db.ReloadFromFile(); err != nil {
-		return fmt.Errorf("failed to reload user database: %v", err)
-	}
 	return nil
 }
 
@@ -120,10 +124,6 @@ func (db *UserDB) RemoveUser(username string) error {
 	// Save to file
 	if err := db.saveToFile(); err != nil {
 		return fmt.Errorf("failed to save user database: %v", err)
-	}
-	// Reload from file
-	if err := db.ReloadFromFile(); err != nil {
-		return fmt.Errorf("failed to reload user database: %v", err)
 	}
 	return nil
 }
@@ -155,10 +155,6 @@ func (db *UserDB) UpdatePassword(username, newPassword string) error {
 	if err := db.saveToFile(); err != nil {
 		return fmt.Errorf("failed to save user database: %v", err)
 	}
-	// Reload from file
-	if err := db.ReloadFromFile(); err != nil {
-		return fmt.Errorf("failed to reload user database: %v", err)
-	}
 	return nil
 }
 
@@ -178,10 +174,6 @@ func (db *UserDB) EnableUser(username string) error {
 	if err := db.saveToFile(); err != nil {
 		return fmt.Errorf("failed to save user database: %v", err)
 	}
-	// Reload from file
-	if err := db.ReloadFromFile(); err != nil {
-		return fmt.Errorf("failed to reload user database: %v", err)
-	}
 	return nil
 }
 
@@ -200,10 +192,6 @@ func (db *UserDB) DisableUser(username string) error {
 	// Save to file
 	if err := db.saveToFile(); err != nil {
 		return fmt.Errorf("failed to save user database: %v", err)
-	}
-	// Reload from file
-	if err := db.ReloadFromFile(); err != nil {
-		return fmt.Errorf("failed to reload user database: %v", err)
 	}
 	return nil
 }
@@ -299,40 +287,6 @@ func (db *UserDB) loadFromFile() error {
 	}
 
 	return json.Unmarshal(data, &db.users)
-}
-
-// ReloadFromFile reloads the user database from disk into memory.
-func (db *UserDB) ReloadFromFile() error {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
-	file, err := os.Open(db.filePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// File doesn't exist yet, start with empty database
-			db.users = make(map[string]*User)
-			return nil
-		}
-		return err
-	}
-	defer file.Close()
-
-	data, err := io.ReadAll(file)
-	if err != nil {
-		return err
-	}
-
-	if len(data) == 0 {
-		db.users = make(map[string]*User)
-		return nil
-	}
-
-	users := make(map[string]*User)
-	if err := json.Unmarshal(data, &users); err != nil {
-		return err
-	}
-	db.users = users
-	return nil
 }
 
 // BackupDB creates a backup of the user database.
