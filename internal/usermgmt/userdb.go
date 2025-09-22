@@ -28,7 +28,6 @@ type UserDB struct {
 }
 
 // NewUserDB creates a new user database instance.
-// If dbPath is empty, it uses "users.json" in the current directory.
 func NewUserDB(dbPath string) *UserDB {
 	if dbPath == "" {
 		dbPath = "users.json"

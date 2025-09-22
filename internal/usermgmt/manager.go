@@ -160,8 +160,6 @@ func (um *Manager) PrintHelp() {
 }
 
 // CreateDefaultUserFromEnv creates a default user from environment variables if they are set.
-// This function checks for SSH_IFY_DEFAULT_USER and SSH_IFY_DEFAULT_PASSWORD environment variables.
-// If both are set and the user doesn't already exist, it creates the user automatically.
 func (um *Manager) CreateDefaultUserFromEnv() error {
 	defaultUser := os.Getenv("SSH_IFY_DEFAULT_USER")
 	defaultPassword := os.Getenv("SSH_IFY_DEFAULT_PASSWORD")

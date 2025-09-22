@@ -1,8 +1,4 @@
 // Package main is the entry point for the ssh-ify application.
-//
-// This package provides the command-line interface (CLI) for running the SSH tunnel proxy server
-// and managing user accounts. It supports both server startup and user management commands,
-// making it suitable for deployment, automation, and administration.
 package main
 
 import (
@@ -13,19 +9,7 @@ import (
 	"github.com/ayanrajpoot10/ssh-ify/internal/usermgmt"
 )
 
-// main is the application entry point for ssh-ify.
-//
-// It parses command-line arguments to determine whether to start the tunnel proxy server
-// or invoke user management commands. If no arguments are provided, it starts the server.
-//
-// Supported commands:
-//   - user-mgmt: Launch interactive user management shell
-//   - add-user <username> <password>: Add a new user
-//   - remove-user <username>: Remove a user
-//   - list-users: List all users
-//   - enable-user <username>: Enable a user
-//   - disable-user <username>: Disable a user
-//   - help: Show usage information
+// main is the application entry point. Parses CLI arguments to start server or run user management commands.
 func main() {
 	// Check for command line arguments
 	if len(os.Args) > 1 {
@@ -114,9 +98,7 @@ func main() {
 	tunnel.StartServer()
 }
 
-// printUsage prints usage information for the ssh-ify CLI.
-//
-// It details all supported commands and provides usage examples for administrators.
+// printUsage prints CLI usage information.
 func printUsage() {
 	fmt.Println(`SSH-ify - SSH Tunnel Proxy Server
 

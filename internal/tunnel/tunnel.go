@@ -1,22 +1,4 @@
 // Package tunnel implements the proxy server and connection handling logic for ssh-ify.
-//
-// Features:
-//   - Manages incoming TCP and TLS connections for HTTP, WebSocket, and SSH tunneling
-//   - Handles protocol upgrades, including WebSocket and HTTP CONNECT
-//   - Provides in-process SSH server integration for secure tunnels
-//   - Tracks and manages active client connections with concurrency safety
-//   - Supports graceful shutdown and connection cleanup
-//   - Includes utility functions and constants for buffer sizes, timeouts, and HTTP responses
-//   - Optimized I/O operations with reusable buffer pools for better performance
-//
-// Usage:
-//  1. Create a new Server with NewServer
-//  2. Start the server using ListenAndServe (for TCP) and ListenAndServeTLS (for TLS)
-//  3. Each incoming connection is handled by a Session, which manages protocol upgrades and relays data
-//  4. Utility functions and constants are available for request parsing and configuration
-//  5. High-performance I/O operations use reusable buffers to reduce allocations
-//
-// This package is intended for use by the ssh-ify proxy server and related internal components.
 package tunnel
 
 import (
@@ -90,39 +72,14 @@ func putBuffer(buf *[]byte) {
 	bufferPool.Put(buf)
 }
 
-// CopyWithBuffer performs buffered copying between src and dst using a pooled buffer.
-// It's more efficient than io.Copy for high-frequency operations as it reuses buffers
-// and reduces garbage collection pressure.
-//
-// Parameters:
-//   - dst: The destination writer
-//   - src: The source reader
-//
-// Returns:
-//   - int64: The number of bytes copied
-//   - error: Any error that occurred during copying
+// CopyWithBuffer performs buffered copying using a pooled buffer.
 func CopyWithBuffer(dst io.Writer, src io.Reader) (int64, error) {
 	buf := getBuffer()
 	defer putBuffer(buf)
 	return io.CopyBuffer(dst, src, *buf)
 }
 
-// Server manages all incoming TCP and TLS connections for the ssh-ify tunnel proxy server.
-//
-// Server tracks active client connections and ensures thread-safe operations using sync primitives.
-// It supports both plain TCP and TLS (HTTPS/WebSocket) connections and provides methods for graceful startup and shutdown.
-//
-// Fields:
-//   - host:        Listen address
-//   - tcpPort:     Listen port for plain TCP/WS
-//   - tlsPort:     Listen port for TLS/HTTPS
-//   - ctx:         Context for cancellation
-//   - cancel:      Cancel function for context
-//   - conns:       Map of active sessions (concurrency safe)
-//   - activeCount: Atomic counter for active connections
-//   - tlsCertFile: Path to TLS certificate file
-//   - tlsKeyFile:  Path to TLS key file
-//   - wg:          WaitGroup to track active sessions
+// Server manages TCP and TLS connections for the ssh-ify tunnel proxy server.
 type Server struct {
 	host        string
 	tcpPort     int
@@ -137,18 +94,6 @@ type Server struct {
 }
 
 // Session manages a single client connection for the ssh-ify tunnel proxy server.
-//
-// Session encapsulates the state and logic for handling a client session, including
-// protocol upgrades (WebSocket/SSH), bidirectional data relay, and connection cleanup.
-// Each Session is associated with a parent Server and maintains references to both
-// the client and target connections.
-//
-// Fields:
-//   - client:    The client network connection
-//   - target:    The target network connection (after upgrade)
-//   - server:    The parent Server
-//   - sshConfig: SSH server configuration for this session
-//   - sessionID: Unique identifier for the session
 type Session struct {
 	client    net.Conn
 	target    net.Conn
@@ -158,14 +103,7 @@ type Session struct {
 }
 
 // Server methods
-// Add registers a new client connection with the server's active connection map.
-//
-// This method is concurrency-safe and increments the active connection count.
-// It is typically called after successful authentication or tunnel establishment.
-//
-// Example:
-//
-//	server.Add(session)
+// Add registers a new client connection with the server.
 func (s *Server) Add(conn *Session) {
 	select {
 	case <-s.ctx.Done():
@@ -178,14 +116,7 @@ func (s *Server) Add(conn *Session) {
 	}
 }
 
-// Remove unregisters a client connection from the server's active connection map.
-//
-// This method is concurrency-safe and decrements the active connection count.
-// It should be called when a connection is closed or cleaned up.
-//
-// Example:
-//
-//	server.Remove(session)
+// Remove unregisters a client connection from the server.
 func (s *Server) Remove(conn *Session) {
 	s.conns.Delete(conn)
 	s.wg.Done()
@@ -193,13 +124,7 @@ func (s *Server) Remove(conn *Session) {
 	log.Println("Connection removed. Active:", newCount)
 }
 
-// Shutdown gracefully terminates the server by closing all active sessions and
-// waiting for all ongoing operations to complete. It logs the shutdown process
-// and ensures that all resources are properly released before returning.
-//
-// Example:
-//
-//	server.Shutdown()
+// Shutdown gracefully terminates the server.
 func (s *Server) Shutdown() {
 	log.Println("Closing all active connections...")
 	s.conns.Range(func(key, value any) bool {
@@ -212,13 +137,7 @@ func (s *Server) Shutdown() {
 	log.Println("All sessions closed.")
 }
 
-// NewServer constructs and returns a new Server with default configuration values.
-//
-// The returned server is ready to accept connections on the default address and port.
-//
-// Example:
-//
-//	server := tunnel.NewServer()
+// NewServer constructs and returns a new Server with default configuration.
 func NewServer() *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
@@ -234,14 +153,6 @@ func NewServer() *Server {
 }
 
 // StartServer launches the tunnel proxy server and manages its lifecycle.
-//
-// This function sets up signal handling for graceful shutdown and starts both TCP and TLS
-// servers simultaneously in separate goroutines. It blocks until a shutdown signal is received,
-// then stops the server and logs the shutdown event.
-//
-// Example:
-//
-//	tunnel.StartServer()
 func StartServer() {
 	s := NewServer()
 
@@ -288,14 +199,7 @@ func serveListener(s *Server, ln net.Listener) {
 	}
 }
 
-// ListenAndServe starts both TCP and TLS tunnel servers simultaneously in separate goroutines.
-//
-// It starts a plain TCP listener on the configured host and port, and a TLS listener on port 443.
-// Both listeners run concurrently and handle incoming connections independently.
-//
-// Example:
-//
-//	server.ListenAndServe()
+// ListenAndServe starts both TCP and TLS tunnel servers simultaneously.
 func (s *Server) ListenAndServe() {
 	// Start TCP listener in a goroutine
 	go s.listenTCP()
@@ -341,13 +245,7 @@ func (s *Server) listenTLS() {
 }
 
 // Session methods
-// Close safely closes both the client and target connections managed by this Session.
-//
-// This method is idempotent and ensures that resources are released only once.
-//
-// Example:
-//
-//	session.Close()
+// Close safely closes both client and target connections.
 func (s *Session) Close() {
 	if s.client != nil {
 		s.client.Close()
@@ -357,14 +255,7 @@ func (s *Session) Close() {
 	}
 }
 
-// Handle manages the lifecycle of a client connection from initial request to tunnel establishment.
-//
-// It parses the HTTP request, detects protocol upgrades (WebSocket/SSH), initializes the SSH server
-// configuration if needed, and establishes the tunnel. All major events and errors are logged for auditing.
-//
-// Example:
-//
-//	sess.Handle()
+// Handle manages the lifecycle of a client connection.
 func (s *Session) Handle() {
 	log.Printf("[session %s] New connection opened", s.sessionID)
 
@@ -414,14 +305,7 @@ func (s *Session) Handle() {
 	}
 }
 
-// Relay copies data bidirectionally between the client and target connections using goroutines.
-//
-// This method ensures proper cleanup after data transfer is complete, including closing connections
-// and removing the Session from the server's active connection map. It is safe to call multiple times.
-//
-// Example:
-//
-//	sess.Relay()
+// Relay copies data bidirectionally between client and target connections.
 func (s *Session) Relay() {
 	defer func() {
 		s.Close()          // Clean up both connections
@@ -458,21 +342,7 @@ func (s *Session) Relay() {
 }
 
 // Utility functions
-// HeaderValue extracts the value of a specific HTTP header from a slice of header lines.
-//
-// It performs a case-insensitive search for the header name and returns the value if found, or an empty string otherwise.
-// This utility is used for parsing incoming client requests and extracting metadata such as Host or custom headers.
-//
-// Parameters:
-//   - headers: Slice of header lines (e.g., from strings.Split(request, "\r\n")).
-//   - headerName: The name of the header to extract (case-insensitive).
-//
-// Returns:
-//   - string: The value of the header, or "" if not found.
-//
-// Example:
-//
-//	host := tunnel.HeaderValue(headers, "Host")
+// HeaderValue extracts the value of a specific HTTP header from header lines.
 func HeaderValue(headers []string, headerName string) string {
 	headerNameLower := strings.ToLower(headerName)
 	for _, line := range headers {
@@ -506,20 +376,7 @@ func isIgnorableError(err error) bool {
 }
 
 // WebSocket handling
-// WebSocketHandler upgrades an incoming session to a WebSocket connection and establishes
-// a tunnel using an in-process SSH server. It validates the Upgrade header, initializes
-// the SSH configuration if necessary, and sets up a bidirectional proxy between the client
-// and the SSH server.
-//
-// Returns true if the upgrade and tunnel setup succeed, or false on failure.
-//
-// Parameters:
-//   - s:        The Session to upgrade.
-//   - reqLines: The HTTP request lines from the client.
-//
-// Example:
-//
-//	ok := tunnel.WebSocketHandler(session, reqLines)
+// WebSocketHandler upgrades a session to WebSocket and establishes an SSH tunnel.
 func WebSocketHandler(s *Session, reqLines []string) bool {
 	upgradeHeader := HeaderValue(reqLines, "Upgrade")
 
