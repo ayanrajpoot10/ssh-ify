@@ -118,20 +118,20 @@ func main() {
 //
 // It details all supported commands and provides usage examples for administrators.
 func printUsage() {
-	fmt.Println("SSH-ify - SSH Tunnel Proxy Server")
-	fmt.Println()
-	fmt.Println("Usage:")
-	fmt.Println("  ssh-ify                           - Start the server")
-	fmt.Println("  ssh-ify user-mgmt                 - Interactive user management")
-	fmt.Println("  ssh-ify add-user <user> <pass>    - Add a user")
-	fmt.Println("  ssh-ify remove-user <user>        - Remove a user")
-	fmt.Println("  ssh-ify list-users                - List all users")
-	fmt.Println("  ssh-ify enable-user <user>        - Enable a user")
-	fmt.Println("  ssh-ify disable-user <user>       - Disable a user")
-	fmt.Println("  ssh-ify help                      - Show this help")
-	fmt.Println()
-	fmt.Println("Examples:")
-	fmt.Println("  ssh-ify add-user alice mypassword")
-	fmt.Println("  ssh-ify remove-user alice")
-	fmt.Println("  ssh-ify user-mgmt")
+	fmt.Println(`SSH-ify - SSH Tunnel Proxy Server
+
+Usage:
+  ssh-ify                           - Start the server
+  ssh-ify user-mgmt                 - Interactive user management
+  ssh-ify add-user <user> <pass>    - Add a user
+  ssh-ify remove-user <user>        - Remove a user
+  ssh-ify list-users                - List all users
+  ssh-ify enable-user <user>        - Enable a user
+  ssh-ify disable-user <user>       - Disable a user
+  ssh-ify help                      - Show this help
+
+Examples:
+  ssh-ify add-user alice mypassword
+  ssh-ify remove-user alice
+  ssh-ify user-mgmt`)
 }
