@@ -4,6 +4,7 @@ package usermgmt
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 )
@@ -156,6 +157,37 @@ func (um *Manager) PrintHelp() {
 	fmt.Println("  disable-user <user>- Disable a user account")
 	fmt.Println("  backup-users <file>- Backup user database")
 	fmt.Println("  help               - Show this help")
+}
+
+// CreateDefaultUserFromEnv creates a default user from environment variables if they are set.
+// This function checks for SSH_IFY_DEFAULT_USER and SSH_IFY_DEFAULT_PASSWORD environment variables.
+// If both are set and the user doesn't already exist, it creates the user automatically.
+func (um *Manager) CreateDefaultUserFromEnv() error {
+	defaultUser := os.Getenv("SSH_IFY_DEFAULT_USER")
+	defaultPassword := os.Getenv("SSH_IFY_DEFAULT_PASSWORD")
+
+	// If environment variables are not set, do nothing
+	if defaultUser == "" || defaultPassword == "" {
+		return nil
+	}
+
+	// Check if user already exists
+	users := um.db.ListUsers()
+	for _, username := range users {
+		if username == defaultUser {
+			log.Printf("Default user '%s' already exists, skipping creation", defaultUser)
+			return nil
+		}
+	}
+
+	// Create the default user
+	log.Printf("Creating default user '%s' from environment variables", defaultUser)
+	if err := um.db.AddUser(defaultUser, defaultPassword); err != nil {
+		return fmt.Errorf("failed to create default user '%s': %v", defaultUser, err)
+	}
+
+	log.Printf("Successfully created default user '%s'", defaultUser)
+	return nil
 }
 
 // RunUserManagementCLI runs an interactive user management command-line interface.

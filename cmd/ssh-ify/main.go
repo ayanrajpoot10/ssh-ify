@@ -114,6 +114,12 @@ func main() {
 		}
 	}
 
+	// Initialize user management and create default user from environment variables if needed
+	um := usermgmt.NewManager("")
+	if err := um.CreateDefaultUserFromEnv(); err != nil {
+		fmt.Printf("Warning: Failed to create default user from environment variables: %v\n", err)
+	}
+
 	// Start the server defined in the tunnel package.
 	tunnel.StartServer()
 }

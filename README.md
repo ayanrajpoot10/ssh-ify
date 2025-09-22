@@ -154,6 +154,13 @@ Manage users via CLI commands:
 - **TLS Certificates**: Auto-generated as `cert.pem` and `key.pem` if not present.
 - **User Database**: Stored as `users.json` in the working directory.
 - **Host SSH Key**: Auto-generated as `host_key` if not present.
+- **Default User**: Can be automatically created using environment variables (see below).
+
+### Environment Variables
+You can automatically create a default user account by setting environment variables:
+
+- `SSH_IFY_DEFAULT_USER`: Username for the default account
+- `SSH_IFY_DEFAULT_PASSWORD`: Password for the default account
 
 ---
 
