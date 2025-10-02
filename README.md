@@ -11,7 +11,7 @@ A simple SSH tunnel proxy server with user management and WebSocket support.
 ## Installation
 
 ```sh
-go install github.com/ayanrajpoot10/ssh-ify/cmd/ssh-ify@latest
+go install github.com/ayanrajpoot10/ssh-ify@latest
 ```
 
 ## Usage
